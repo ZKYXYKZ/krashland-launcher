@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-void:        #05050a;
+  --bg-deep:        #0a0a14;
+  --bg-card:        #0f0f1e;
+  --bg-card-hover:  #141428;
+  --bg-overlay:     rgba(5, 5, 15, 0.85);
+
+  --gold:           #c89b3c;
+  --gold-light:     #f0c060;
+  --gold-dim:       #7a5c1e;
+  --gold-glow:      rgba(200, 155, 60, 0.25);
+
+  --arcane:         #9f6fff;
+  --arcane-deep:    #5a2fa0;
+  --arcane-glow:    rgba(159, 111, 255, 0.2);
+
+  --portal:         #3d9eff;
+  --portal-glow:    rgba(61, 158, 255, 0.2);
+
+  --text:           #e8e4d8;
+  --text-muted:     #7a7060;
+  --text-dim:       #4a4538;
+
+  --border:         rgba(200, 155, 60, 0.2);
+  --border-bright:  rgba(200, 155, 60, 0.5);
+
+  --font-display:   'Cinzel', 'Georgia', serif;
+  --font-body:      'Inter', system-ui, sans-serif;
+
+  --radius-sm:      4px;
+  --radius:         8px;
+  --radius-lg:      14px;
+  --transition:     0.2s ease;
+  --titlebar-height: 38px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-void);
+  color: var(--text);
+  font-family: var(--font-body);
+  user-select: none; /* app desktop : pas de sélection de texte sauvage */
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+input, textarea, button {
+  user-select: text;
+}
+
+a { color: var(--gold); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--gold-light); }
+
+/* ============================================================
+   UTILITAIRES PARTAGÉS — synchronisés avec le design du site
+   ============================================================ */
+
+/* Lueur dorée / arcane sur texte */
+.glow-gold {
+  text-shadow: 0 0 20px var(--gold-glow), 0 0 40px var(--gold-glow);
+}
+.glow-arcane {
+  text-shadow: 0 0 20px var(--arcane-glow), 0 0 40px var(--arcane-glow);
+}
+
+/* Carte standard avec hover */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.card:hover {
+  border-color: var(--border-bright);
+  background: var(--bg-card-hover);
+}
+
+/* Boutons partagés */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+  color: #0d0a04;
+  box-shadow: 0 0 20px var(--gold-glow);
+}
+.btn-gold:hover:not(:disabled) {
+  box-shadow: 0 0 35px var(--gold-glow), 0 4px 15px rgba(0,0,0,0.4);
+  transform: translateY(-1px);
+  color: #0d0a04;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--border-bright);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--gold-glow);
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Séparateur ornemental */
+.divider-ornament {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 auto;
+  width: fit-content;
+}
+.divider-ornament::before,
+.divider-ornament::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold-dim));
+}
+.divider-ornament::after {
+  background: linear-gradient(to left, transparent, var(--gold-dim));
+}
+
+/* Tag / Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--gold-glow);
+  color: var(--gold-light);
+  border: 1px solid var(--border);
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 4px; transition: background var(--transition); }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }

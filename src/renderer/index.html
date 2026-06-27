@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      connect-src inclut http: pour permettre les tests en localhost (backend non-HTTPS
+      en dev) — à resserrer en prod si le backend tourne en HTTPS (retirer http:).
+      style-src/font-src autorisent Google Fonts (Cinzel/Inter, voir assets/main.css).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: http:;" />
+    <title>Krashland Launcher</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
