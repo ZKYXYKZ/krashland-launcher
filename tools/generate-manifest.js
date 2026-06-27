@@ -3,26 +3,30 @@
  * Génère le manifest.json du client WoW pour le launcher Krashland.
  *
  * Usage :
- *   node generate-manifest.js <dossier_client> [version] [--out=manifest.json]
+ *   node tools/generate-manifest.js <dossier_client> [version] [--out=manifest.json]
  *
  * Exemple :
- *   node generate-manifest.js "D:\Krashland-Client" 1.0.3
+ *   node tools/generate-manifest.js "D:\Krashland-Client" 1.0.3
  *
  * Le manifest produit liste tous les fichiers du dossier (récursif), avec leur
- * taille et un hash SHA-256, plus une URL de téléchargement relative au CDN.
- * Le launcher compare ce manifest à l'état local pour ne télécharger que ce
- * qui manque ou a changé.
+ * taille, un hash SHA-256 et leur mtime (date de modification, en secondes).
+ * Le launcher (voir launcher/src/main/gameManager.js, fonction diffManifest)
+ * compare ce manifest à l'état local : si taille + mtime correspondent déjà,
+ * il fait confiance sans relire/rehasher le fichier (gain de temps important
+ * sur un gros client). Le sha256 reste la source de vérité en cas de doute.
  *
- * Fichiers à exclure par défaut : Cache/, Errors/, WTF/ (configs perso, logs,
- * macros — propres à chaque joueur, ne doivent jamais être écrasés par un update).
+ * Fichiers/dossiers exclus par défaut : Cache, Errors, Logs, WTF, Screenshots
+ * (configs perso, logs, captures — propres à chaque joueur, ne doivent jamais
+ * être écrasés par un update), ainsi que realmlist.wtf et config.wtf.
  */
 
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 
-const EXCLUDED_DIRS = new Set(['cache', 'errors', 'wtf', 'screenshots', 'logs'])
+const EXCLUDED_DIRS = new Set(['cache', 'errors', 'logs', 'wtf', 'screenshots', '.git'])
 const EXCLUDED_FILES = new Set(['realmlist.wtf', 'config.wtf'])
+const EXCLUDED_EXT = new Set(['.log'])
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -40,7 +44,7 @@ function parseArgs() {
   return { clientDir, version, out }
 }
 
-function hashFile(filePath) {
+function sha256File(filePath) {
   const buf = fs.readFileSync(filePath)
   return crypto.createHash('sha256').update(buf).digest('hex')
 }
@@ -56,11 +60,15 @@ function walk(dir, baseDir, acc) {
       walk(full, baseDir, acc)
     } else if (entry.isFile()) {
       if (EXCLUDED_FILES.has(entry.name.toLowerCase())) continue
+      const ext = path.extname(entry.name).toLowerCase()
+      if (EXCLUDED_EXT.has(ext)) continue
+
       const stat = fs.statSync(full)
       acc.push({
         path: rel,
         size: stat.size,
-        sha256: hashFile(full)
+        sha256: sha256File(full),
+        mtime: Math.floor(stat.mtimeMs / 1000)
       })
     }
   }
@@ -77,6 +85,7 @@ function main() {
   console.log(`Scan de ${clientDir}...`)
   const files = []
   walk(clientDir, clientDir, files)
+  console.log(`${files.length} fichiers trouvés. Calcul des hash (peut prendre plusieurs minutes pour un gros client)...`)
 
   const manifest = {
     version,

@@ -12,7 +12,11 @@
     "build:win": "electron-vite build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "build:all": "electron-vite build && electron-builder --win --mac --linux"
+    "build:all": "electron-vite build && electron-builder --win --mac --linux",
+    "release:win": "electron-vite build && electron-builder --win --publish always",
+    "release:mac": "electron-vite build && electron-builder --mac --publish always",
+    "release:linux": "electron-vite build && electron-builder --linux --publish always",
+    "release:all": "electron-vite build && electron-builder --win --mac --linux --publish always"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
