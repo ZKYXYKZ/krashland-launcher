@@ -36,46 +36,80 @@ export async function fetchManifest() {
 }
 
 /**
+ * Check léger : récupère uniquement la version du manifest distant, sans rien
+ * comparer ni télécharger. Utilisé au démarrage pour savoir si un sync est
+ * nécessaire, sans payer le coût d'un diff complet à chaque ouverture.
+ */
+export async function fetchManifestVersion() {
+  const manifest = await fetchManifest()
+  return manifest.version
+}
+
+// Nombre de fichiers vérifiés (hash) en parallèle. Limité pour ne pas saturer
+// un disque mécanique (HDD) — sur un SSD ça pourrait monter plus haut, mais on
+// reste prudent pour les configs modestes visées par le serveur.
+const DIFF_CONCURRENCY = 5
+
+async function checkSingleFile(installPath, file) {
+  const localPath = path.join(installPath, file.path)
+  let needsDownload = true
+
+  if (fs.existsSync(localPath)) {
+    const stat = fs.statSync(localPath)
+    if (stat.size === file.size) {
+      const localMtime = Math.floor(stat.mtimeMs / 1000)
+      if (file.mtime && localMtime === file.mtime) {
+        // Taille + date identiques : on fait confiance sans relire le fichier
+        needsDownload = false
+      } else {
+        try {
+          const localHash = await sha256File(localPath)
+          needsDownload = localHash !== file.sha256
+        } catch {
+          needsDownload = true
+        }
+      }
+    }
+  }
+
+  return needsDownload
+}
+
+/**
  * Compare le manifest distant à l'installation locale.
  * Retourne la liste des fichiers à télécharger (absents ou hash différent)
  * et la taille totale à télécharger.
  *
- * Optimisation : si taille ET date de modification (mtime) du fichier local
+ * Optimisation 1 : si taille ET date de modification (mtime) du fichier local
  * correspondent à celles du manifest, on considère le fichier intact sans le
  * relire entièrement (évite de re-hasher tous les fichiers à chaque lancement,
  * ce qui peut prendre plusieurs minutes sur un gros client). Le sha256 n'est
  * calculé que si mtime/taille diffèrent, ou si le manifest ne fournit pas de
  * mtime (rétrocompatibilité avec un ancien manifest).
+ *
+ * Optimisation 2 : les fichiers sont vérifiés par lots de DIFF_CONCURRENCY en
+ * parallèle plutôt qu'un par un. Avant, un client avec beaucoup de fichiers
+ * ratant le fast-path (ex: mtimes non préservés après une copie/transfert)
+ * additionnait le temps de lecture de CHAQUE fichier en série — avec des MPQ
+ * de plusieurs centaines de Mo, ça pouvait largement dépasser la minute. En
+ * parallèle, le temps total se rapproche du fichier le plus lent du lot plutôt
+ * que de leur somme.
  */
 export async function diffManifest(installPath, manifest, onProgress) {
   const toDownload = []
   let checked = 0
 
-  for (const file of manifest.files) {
-    const localPath = path.join(installPath, file.path)
-    let needsDownload = true
+  for (let i = 0; i < manifest.files.length; i += DIFF_CONCURRENCY) {
+    const batch = manifest.files.slice(i, i + DIFF_CONCURRENCY)
+    const results = await Promise.all(
+      batch.map((file) => checkSingleFile(installPath, file))
+    )
 
-    if (fs.existsSync(localPath)) {
-      const stat = fs.statSync(localPath)
-      if (stat.size === file.size) {
-        const localMtime = Math.floor(stat.mtimeMs / 1000)
-        if (file.mtime && localMtime === file.mtime) {
-          // Taille + date identiques : on fait confiance sans relire le fichier
-          needsDownload = false
-        } else {
-          try {
-            const localHash = await sha256File(localPath)
-            needsDownload = localHash !== file.sha256
-          } catch {
-            needsDownload = true
-          }
-        }
-      }
-    }
+    results.forEach((needsDownload, idx) => {
+      if (needsDownload) toDownload.push(batch[idx])
+    })
 
-    if (needsDownload) toDownload.push(file)
-
-    checked++
+    checked += batch.length
     if (onProgress) onProgress({ phase: 'checking', checked, total: manifest.files.length })
   }
 

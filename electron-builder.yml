@@ -39,3 +39,4 @@ publish:
   owner: ZKYXYKZ
   repo: krashland-launcher
   private: false
+  releaseType: release

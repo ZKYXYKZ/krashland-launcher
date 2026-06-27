@@ -5,14 +5,6 @@
 
     <!-- SIDEBAR -->
     <aside class="sidebar">
-      <div class="user-box">
-        <span class="user-avatar">👤</span>
-        <div class="user-info">
-          <span class="user-name">{{ user?.username }}</span>
-          <span class="user-gm" v-if="user?.gmLevel > 0">GM {{ user.gmLevel }}</span>
-        </div>
-      </div>
-
       <nav class="side-nav">
         <a class="side-link" :class="{ active: tab === 'news' }" @click="tab = 'news'">📰 Actualités</a>
         <a class="side-link" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">⚙️ Options</a>
@@ -22,7 +14,6 @@
         <a class="ext-link" @click="openExternal(websiteUrl)">🌐 Site web</a>
         <a class="ext-link" @click="openExternal(discordUrl)">💬 Discord</a>
         <a class="ext-link" @click="openExternal(voteUrl)">🗳️ Voter</a>
-        <a class="ext-link" @click="logout">↩ Déconnexion</a>
       </div>
     </aside>
 
@@ -96,9 +87,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import OnboardingView from './OnboardingView.vue'
 
-const props = defineProps({ user: { type: Object, required: true } })
-const emit = defineEmits(['logged-out'])
-
 const tab = ref('news')
 const news = ref([])
 const newsLoading = ref(false)
@@ -110,18 +98,18 @@ const syncError = ref('')
 // même en test local (sinon le fetch news tapait toujours krashland.fr en prod).
 const apiBaseUrl = ref('')
 
-// État du jeu : onboarding | no-path | checking | downloading | ready | launching |
-// waiting-window | typing-credentials | needs-relogin | error
+// État du jeu : onboarding | no-path | checking | downloading | ready | launching | error
 const gameStatus = ref('onboarding')
 const downloadedBytes = ref(0)
 const totalBytes = ref(0)
 const checkedCount = ref(0)
 const checkedTotal = ref(0)
-// Mémorise l'état "prêt" précédent pour pouvoir y revenir après un lancement (réussi ou pas)
-let lastReadyStatus = 'ready'
 
 let removeProgressListener = null
-let removePlayStatusListener = null
+let contentUpdateInterval = null
+
+// Intervalle du check auto de contenu (manifest jeu) tant que le launcher reste ouvert.
+const CONTENT_UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000
 
 // Résolus dynamiquement via config:get (même appel IPC que apiBaseUrl)
 const websiteUrl = ref('')
@@ -135,8 +123,8 @@ const progressPercent = computed(() => {
 
 const statusClass = computed(() => ({
   'dot-green': gameStatus.value === 'ready',
-  'dot-gold': ['downloading', 'checking', 'launching', 'waiting-window', 'typing-credentials'].includes(gameStatus.value),
-  'dot-red': ['error', 'no-path', 'needs-relogin'].includes(gameStatus.value)
+  'dot-gold': ['downloading', 'checking', 'launching'].includes(gameStatus.value),
+  'dot-red': ['error', 'no-path'].includes(gameStatus.value)
 }))
 const statusLabel = computed(() => {
   if (gameStatus.value === 'checking' && checkedTotal.value) {
@@ -152,27 +140,13 @@ const statusLabel = computed(() => {
     checking: 'Vérification des fichiers...',
     ready: 'Prêt à jouer',
     launching: 'Lancement du jeu...',
-    'waiting-window': "En attente de l'écran de connexion...",
-    'typing-credentials': 'Connexion automatique...',
-    'needs-relogin': 'Reconnecte-toi pour activer la connexion auto au jeu',
     error: syncError.value || 'Erreur de synchronisation'
   }[gameStatus.value] || ''
 })
-const playDisabled = computed(() =>
-  !['ready', 'needs-relogin'].includes(gameStatus.value)
-)
-const playLabel = computed(() => {
-  if (['ready'].includes(gameStatus.value)) return 'JOUER'
-  if (gameStatus.value === 'needs-relogin') return 'JOUER (sans auto-login)'
-  return '...'
-})
+const playDisabled = computed(() => gameStatus.value !== 'ready')
+const playLabel = computed(() => (gameStatus.value === 'ready' ? 'JOUER' : '...'))
 
 function openExternal(url) { window.open(url, '_blank') }
-
-async function logout() {
-  await window.krash.auth.logout()
-  emit('logged-out')
-}
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -218,19 +192,13 @@ function onOnboardingDone() {
 }
 
 async function play() {
-  if (gameStatus.value === 'ready') lastReadyStatus = 'ready'
   syncError.value = ''
   gameStatus.value = 'launching'
 
   const res = await window.krash.game.play()
 
   if (res.ok) {
-    gameStatus.value = lastReadyStatus
-    return
-  }
-
-  if (res.code === 'NEEDS_RELOGIN') {
-    gameStatus.value = 'needs-relogin'
+    gameStatus.value = 'ready'
     return
   }
 
@@ -271,13 +239,6 @@ onMounted(async () => {
     }
   })
 
-  // Statuts détaillés pendant le clic JOUER (lancement → attente fenêtre → saisie)
-  removePlayStatusListener = window.krash.game.onPlayStatus((status) => {
-    if (['launching', 'waiting-window', 'typing-credentials'].includes(status)) {
-      gameStatus.value = status
-    }
-  })
-
   installPath.value = await window.krash.store.get('game.installPath') || ''
   const installVerified = await window.krash.store.get('game.installVerified')
 
@@ -285,15 +246,38 @@ onMounted(async () => {
     // Déjà vérifié lors d'un lancement précédent : on saute le check complet,
     // zéro lecture disque, direct prêt à jouer.
     gameStatus.value = 'ready'
+    // Check léger en arrière-plan (une seule requête JSON, pas de lecture disque) :
+    // si le manifest distant a changé de version depuis le dernier sync complet,
+    // on relance automatiquement runSync(), qui grâce au fast-path mtime+taille
+    // de diffManifest ne télécharge que les fichiers réellement nouveaux/modifiés.
+    checkForContentUpdate()
+    // Puis on répète ce check léger périodiquement tant que le launcher reste
+    // ouvert, pour détecter une mise à jour de contenu sans devoir relancer l'app.
+    contentUpdateInterval = setInterval(checkForContentUpdate, CONTENT_UPDATE_CHECK_INTERVAL_MS)
   } else {
     // Pas encore de dossier, ou dossier jamais vérifié avec succès : onboarding.
     gameStatus.value = 'onboarding'
   }
 })
 
+async function checkForContentUpdate() {
+  // On ne déclenche pas un nouveau check si une synchro ou un lancement est déjà
+  // en cours (évite de couper un téléchargement ou de doubler un sync).
+  if (!['ready', 'error'].includes(gameStatus.value)) return
+
+  try {
+    const res = await window.krash.game.checkVersion()
+    if (res.ok && !res.upToDate) {
+      await runSync()
+    }
+  } catch (e) {
+    console.error('[MainView] échec du check de version manifest :', e)
+  }
+}
+
 onUnmounted(() => {
   removeProgressListener?.()
-  removePlayStatusListener?.()
+  if (contentUpdateInterval) clearInterval(contentUpdateInterval)
 })
 </script>
 
@@ -320,18 +304,6 @@ onUnmounted(() => {
   flex-direction: column;
   padding: 1rem .85rem;
 }
-.user-box {
-  display: flex; align-items: center; gap: .6rem; padding: .6rem .7rem; margin-bottom: 1rem;
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.user-avatar {
-  font-size: 1.3rem; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--gold-glow); border: 1px solid var(--border-bright);
-}
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-family: var(--font-display); font-size: .85rem; color: var(--text); font-weight: 600; }
-.user-gm { font-size: .65rem; color: var(--arcane); }
-
 .side-nav { display: flex; flex-direction: column; gap: .25rem; }
 .side-link {
   padding: .55rem .7rem;

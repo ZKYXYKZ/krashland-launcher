@@ -1,23 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import Store from 'electron-store'
-import { createApiClient } from './apiClient.js'
-import { syncGame } from './gameManager.js'
-import { launchAndLogin } from './gameLauncher.js'
+import { syncGame, fetchManifestVersion } from './gameManager.js'
+import { launchGame } from './gameLauncher.js'
 import { setupAutoUpdate } from './autoUpdate.js'
 import config from './config.js'
 
 const store = new Store({
   encryptionKey: 'krashland-launcher-local-store' // chiffrement local basique (anti-lecture en clair sur disque)
 })
-
-// Le token JWT ne quitte jamais le process main (pas exposé au renderer)
-const api = createApiClient(() => store.get('auth.token') || null)
-
-// Identifiants gardés UNIQUEMENT en mémoire (RAM du process main), jamais persistés sur
-// disque, jamais exposés au renderer. Réinitialisés à chaque démarrage du launcher —
-// nécessaires pour la saisie auto au lancement du jeu (le mdp n'est pas dans le JWT).
-let sessionCredentials = null
 
 let mainWindow = null
 
@@ -51,8 +42,8 @@ function createWindow() {
   }
 }
 
-// Expose au renderer la config publique (URL API) résolue par le main process —
-// seule source de vérité pour KRASH_API_URL, déjà utilisée pour l'auth/le sync.
+// Expose au renderer la config publique (URL API, liens) résolue par le main process —
+// seule source de vérité pour KRASH_API_URL, utilisée pour les news et la synchro du jeu.
 // Aucune donnée sensible ici (pas de token, pas de clé).
 ipcMain.handle('config:get', () => ({
   apiBaseUrl: config.API_BASE_URL,
@@ -70,9 +61,8 @@ ipcMain.on('window:maximize-toggle', () => {
   else mainWindow.maximize()
 })
 
-// Liste blanche : empêche le renderer de lire/écrire des clés sensibles
-// (notamment auth.token, auth.user) via ce canal générique.
-const STORE_ALLOWED_KEYS = new Set(['game.installPath', 'game.installVerified'])
+// Liste blanche : empêche le renderer de lire/écrire des clés arbitraires via ce canal générique.
+const STORE_ALLOWED_KEYS = new Set(['game.installPath', 'game.installVerified', 'game.manifestVersion'])
 
 ipcMain.handle('store:get', (_e, key) => {
   if (!STORE_ALLOWED_KEYS.has(key)) return undefined
@@ -89,45 +79,6 @@ ipcMain.handle('store:delete', (_e, key) => {
   return true
 })
 
-ipcMain.handle('auth:login', async (_e, { username, password }) => {
-  try {
-    const { data } = await api.post('/auth/login', { username, password })
-    store.set('auth.token', data.token)
-    store.set('auth.user', data.user)
-    // Gardé en RAM pour l'auto-login dans le jeu au clic JOUER (jamais écrit sur disque)
-    sessionCredentials = { username, password }
-    return { ok: true, user: data.user }
-  } catch (err) {
-    const message = err.response?.data?.error || 'Connexion impossible au serveur'
-    return { ok: false, error: message, code: err.response?.data?.code }
-  }
-})
-
-ipcMain.handle('auth:logout', () => {
-  store.delete('auth.token')
-  store.delete('auth.user')
-  sessionCredentials = null
-  return { ok: true }
-})
-
-ipcMain.handle('auth:me', async () => {
-  const token = store.get('auth.token')
-  const cachedUser = store.get('auth.user')
-  if (!token) return { ok: false }
-  try {
-    const { data } = await api.get('/auth/me')
-    store.set('auth.user', data)
-    return { ok: true, user: data }
-  } catch (err) {
-    if (err.response?.status === 401) {
-      store.delete('auth.token')
-      store.delete('auth.user')
-      return { ok: false }
-    }
-    if (cachedUser) return { ok: true, user: cachedUser, offline: true }
-    return { ok: false }
-  }
-})
 
 let syncInProgress = false
 
@@ -159,6 +110,9 @@ ipcMain.handle('game:sync', async (event) => {
     })
     // Le check complet a réussi : on peut sauter ce check aux prochains lancements
     store.set('game.installVerified', true)
+    // Mémorise la version du manifest tout juste synchronisée, pour pouvoir
+    // détecter une future mise à jour de contenu sans refaire un check complet.
+    if (result.version) store.set('game.manifestVersion', result.version)
     return { ok: true, ...result }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -167,38 +121,39 @@ ipcMain.handle('game:sync', async (event) => {
   }
 })
 
-// ── IPC : lancement du jeu + auto-login simulé ──
+// ── IPC : lancement du jeu (le joueur saisit ses identifiants dans le client lui-même) ──
 let playInProgress = false
 
-ipcMain.handle('game:play', async (event) => {
+ipcMain.handle('game:play', async () => {
   if (playInProgress) return { ok: false, error: 'Lancement déjà en cours' }
 
   const installPath = store.get('game.installPath')
   if (!installPath) return { ok: false, error: "Dossier d'installation non défini" }
 
-  if (!sessionCredentials) {
-    // Cas : launcher redémarré et reconnecté via token caché (auth:me) sans
-    // ressaisie du mot de passe — on ne peut pas auto-login dans le jeu.
-    return {
-      ok: false,
-      error: 'Reconnexion requise pour activer la connexion automatique au jeu',
-      code: 'NEEDS_RELOGIN'
-    }
-  }
-
   playInProgress = true
   try {
-    await launchAndLogin(
-      installPath,
-      sessionCredentials.username,
-      sessionCredentials.password,
-      (status) => event.sender.send('game:play-status', status)
-    )
+    launchGame(installPath)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
   } finally {
     playInProgress = false
+  }
+})
+
+// Check léger appelé au démarrage si le joueur a déjà une installation vérifiée :
+// récupère juste la version du manifest distant (1 requête JSON, quasi instantané),
+// sans rien comparer fichier par fichier. Si la version diffère de celle mémorisée
+// au dernier sync complet, le renderer sait qu'il doit relancer game:sync (qui,
+// grâce au fast-path mtime+taille de diffManifest, ne re-téléchargera que ce qui
+// a réellement changé — pas un check complet coûteux).
+ipcMain.handle('game:checkVersion', async () => {
+  try {
+    const remoteVersion = await fetchManifestVersion()
+    const localVersion = store.get('game.manifestVersion')
+    return { ok: true, upToDate: localVersion === remoteVersion, remoteVersion, localVersion }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 })
 

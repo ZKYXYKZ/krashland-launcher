@@ -14,25 +14,16 @@ contextBridge.exposeInMainWorld('krash', {
     set: (key, value) => ipcRenderer.invoke('store:set', key, value),
     delete: (key) => ipcRenderer.invoke('store:delete', key)
   },
-  auth: {
-    login: (username, password) => ipcRenderer.invoke('auth:login', { username, password }),
-    logout: () => ipcRenderer.invoke('auth:logout'),
-    me: () => ipcRenderer.invoke('auth:me')
-  },
   game: {
     chooseFolder: () => ipcRenderer.invoke('game:chooseFolder'),
     sync: () => ipcRenderer.invoke('game:sync'),
+    checkVersion: () => ipcRenderer.invoke('game:checkVersion'),
     onSyncProgress: (callback) => {
       const handler = (_e, progress) => callback(progress)
       ipcRenderer.on('game:sync-progress', handler)
       return () => ipcRenderer.removeListener('game:sync-progress', handler)
     },
-    play: () => ipcRenderer.invoke('game:play'),
-    onPlayStatus: (callback) => {
-      const handler = (_e, status) => callback(status)
-      ipcRenderer.on('game:play-status', handler)
-      return () => ipcRenderer.removeListener('game:play-status', handler)
-    }
+    play: () => ipcRenderer.invoke('game:play')
   },
   update: {
     check: () => ipcRenderer.invoke('update:check'),

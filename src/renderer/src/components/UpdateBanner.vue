@@ -1,9 +1,6 @@
 <template>
   <div v-if="visible" class="update-banner" :class="{ 'is-ready': phase === 'ready', 'is-error': phase === 'error' }">
     <span class="update-msg">{{ message }}</span>
-    <button v-if="phase === 'ready'" class="btn-update" @click="install">
-      Redémarrer pour mettre à jour
-    </button>
     <button v-if="phase === 'error' || phase === 'up-to-date'" class="btn-dismiss" @click="dismiss">✕</button>
   </div>
 </template>
@@ -24,15 +21,11 @@ const visible = computed(() =>
 const message = computed(() => ({
   available: 'Mise à jour disponible, téléchargement...',
   downloading: `Téléchargement de la mise à jour... ${percent.value}%`,
-  ready: 'Mise à jour prête à installer.',
+  ready: 'Mise à jour téléchargée, installation et redémarrage automatique...',
   error: "Erreur lors de la vérification des mises à jour (le launcher reste utilisable)."
 }[phase.value] || ''))
 
 function dismiss() { dismissed.value = true }
-
-async function install() {
-  await window.krash.update.install()
-}
 
 onMounted(() => {
   removeListener = window.krash.update.onStatus((status) => {
@@ -68,16 +61,6 @@ onUnmounted(() => {
 .update-banner.is-ready { border-color: var(--gold); }
 .update-banner.is-error { border-color: #cc6d6d; }
 
-.btn-update {
-  padding: .4rem .8rem;
-  background: linear-gradient(135deg, #b8861e, var(--gold));
-  color: #0d0a04;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: .74rem;
-  font-weight: 700;
-  cursor: pointer;
-}
 .btn-dismiss {
   background: none;
   border: none;

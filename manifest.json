@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
-  "generatedAt": "2026-06-27T11:45:44.390Z",
-  "fileCount": 61,
-  "totalSize": 19723966176,
+  "version": "1.0.2",
+  "generatedAt": "2026-06-27T14:34:39.858Z",
+  "fileCount": 62,
+  "totalSize": 19797273032,
   "files": [
     {
       "path": "Battle.net.dll",
@@ -159,6 +159,12 @@
       "size": 475512856,
       "sha256": "861607e027055aedbbf9ced63888456145583c6b30a92b4abb9062fc854487ee",
       "mtime": 1782421863
+    },
+    {
+      "path": "Data/patch-L.MPQ",
+      "size": 73306856,
+      "sha256": "b56bef88cbf007e7af53ae6626377854aaf8a82dd8976a6d100ba104154d9eca",
+      "mtime": 1777746558
     },
     {
       "path": "Data/patch.MPQ",

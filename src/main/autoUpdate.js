@@ -20,7 +20,7 @@ export function setupAutoUpdate(send) {
   }
 
   autoUpdater.autoDownload = false // on télécharge seulement après accord implicite (statut affiché à l'utilisateur)
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false // on installe nous-mêmes via quitAndInstall() dès le téléchargement terminé (cf. update-downloaded), pour éviter une course entre la fermeture "normale" de l'app et le lancement de l'installeur NSIS
 
   autoUpdater.on('checking-for-update', () => {
     send('update:status', { phase: 'checking' })
@@ -48,6 +48,10 @@ export function setupAutoUpdate(send) {
 
   autoUpdater.on('update-downloaded', (info) => {
     send('update:status', { phase: 'ready', version: info.version })
+    // Installation automatique, sans action du joueur : quitAndInstall() ferme proprement
+    // le launcher puis lance l'installeur, ce qui évite le blocage NSIS observé quand
+    // l'app se fermait "normalement" pendant que l'installeur tentait déjà de la tuer.
+    setTimeout(() => autoUpdater.quitAndInstall(), 1500)
   })
 
   autoUpdater.on('error', (err) => {
