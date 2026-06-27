@@ -27,6 +27,12 @@
         </div>
       </template>
 
+      <template v-else-if="step === 'finalizing'">
+        <h2 class="ob-title">Finalisation...</h2>
+        <p class="ob-sub">Écriture des derniers fichiers sur le disque, presque terminé.</p>
+        <div class="ob-spinner"><span class="spinner" /></div>
+      </template>
+
       <template v-else-if="step === 'error'">
         <h2 class="ob-title">Erreur</h2>
         <p class="ob-sub error">{{ errorMsg }}</p>
@@ -104,6 +110,10 @@ onMounted(() => {
       retryNotice.value = progress.retry
         ? `Connexion interrompue, nouvelle tentative ${progress.retry.attempt}/${progress.retry.maxAttempts} pour ${progress.retry.file}...`
         : ''
+    } else if (progress.phase === 'finalizing') {
+      step.value = 'finalizing'
+      downloadedBytes.value = progress.downloadedBytes
+      totalBytes.value = progress.totalBytes
     }
   })
 })

@@ -123,12 +123,17 @@ const progressPercent = computed(() => {
 
 const statusClass = computed(() => ({
   'dot-green': gameStatus.value === 'ready',
-  'dot-gold': ['downloading', 'checking', 'launching'].includes(gameStatus.value),
+  'dot-gold': ['downloading', 'finalizing', 'checking', 'launching'].includes(gameStatus.value),
   'dot-red': ['error', 'no-path'].includes(gameStatus.value)
 }))
 const statusLabel = computed(() => {
   if (gameStatus.value === 'checking' && checkedTotal.value) {
     return `Vérification (${checkedCount.value}/${checkedTotal.value})...`
+  }
+  if (gameStatus.value === 'finalizing') {
+    // Tous les bytes sont reçus (barre à 100%) mais l'écriture disque n'est pas
+    // encore confirmée — sans ce libellé distinct, le launcher paraît bloqué.
+    return 'Finalisation...'
   }
   if (gameStatus.value === 'downloading') {
     const mb = (downloadedBytes.value / 1024 / 1024).toFixed(0)
@@ -234,6 +239,10 @@ onMounted(async () => {
       checkedTotal.value = progress.total
     } else if (progress.phase === 'downloading') {
       gameStatus.value = 'downloading'
+      downloadedBytes.value = progress.downloadedBytes
+      totalBytes.value = progress.totalBytes
+    } else if (progress.phase === 'finalizing') {
+      gameStatus.value = 'finalizing'
       downloadedBytes.value = progress.downloadedBytes
       totalBytes.value = progress.totalBytes
     }
