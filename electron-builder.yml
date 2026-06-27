@@ -38,4 +38,4 @@ publish:
   provider: github
   owner: ZKYXYKZ
   repo: krashland-launcher
-  private: true
+  private: false

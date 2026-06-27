@@ -1,7 +1,7 @@
 <template>
   <div class="titlebar">
     <div class="titlebar-drag">
-      <span class="titlebar-logo glow-gold">⚔️ Krashland</span>
+      <span class="titlebar-logo glow-gold">⚔️ Krashland<span v-if="version" class="titlebar-version"> ({{ version }})</span></span>
     </div>
     <div class="titlebar-controls">
       <button class="tb-btn" @click="minimize" title="Réduire">─</button>
@@ -12,9 +12,18 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+
+const version = ref('')
+
 function minimize() { window.krash.window.minimize() }
 function maximizeToggle() { window.krash.window.maximizeToggle() }
 function close() { window.krash.window.close() }
+
+onMounted(async () => {
+  const cfg = await window.krash.config.get()
+  version.value = cfg.appVersion ? `v${cfg.appVersion}` : ''
+})
 </script>
 
 <style scoped>
@@ -40,6 +49,12 @@ function close() { window.krash.window.close() }
   font-weight: 600;
   color: var(--gold);
   letter-spacing: .04em;
+}
+.titlebar-version {
+  font-size: .72rem;
+  font-weight: 400;
+  color: var(--text-dim);
+  letter-spacing: 0;
 }
 .titlebar-controls {
   display: flex;

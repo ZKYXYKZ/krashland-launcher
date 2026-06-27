@@ -3,10 +3,12 @@ import { app } from 'electron'
 
 /**
  * Auto-update du LAUNCHER lui-même (pas du jeu) via GitHub Releases.
- * Le repo GitHub est privé : electron-builder.yml référence owner/repo, et le
- * token de lecture doit être fourni via la variable d'env GH_TOKEN au moment du
- * build (electron-builder l'utilise aussi pour publier). En dev (npm run dev),
- * on désactive complètement les checks pour ne pas polluer les logs/réseau.
+ * Le repo GitHub (ZKYXYKZ/krashland-launcher) est PUBLIC : aucun token n'est
+ * nécessaire côté joueur pour lire les releases (autoUpdater fonctionne sans
+ * authentification). Le GH_TOKEN reste utile uniquement côté développeur, au
+ * moment de PUBLIER une release (npm run release:win / release.bat), jamais
+ * embarqué dans le launcher distribué. En dev (npm run dev), on désactive
+ * complètement les checks pour ne pas polluer les logs/réseau.
  *
  * Émet des événements vers le renderer via send(channel, payload) — fonction
  * injectée pour ne pas dépendre directement de mainWindow ici.

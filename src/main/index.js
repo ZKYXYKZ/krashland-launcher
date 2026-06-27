@@ -58,7 +58,8 @@ ipcMain.handle('config:get', () => ({
   apiBaseUrl: config.API_BASE_URL,
   websiteUrl: config.WEBSITE_URL,
   discordUrl: config.DISCORD_URL,
-  voteUrl: config.VOTE_URL
+  voteUrl: config.VOTE_URL,
+  appVersion: app.getVersion()
 }))
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize())
