@@ -21,6 +21,7 @@
       <template v-else-if="step === 'downloading'">
         <h2 class="ob-title">Téléchargement en cours...</h2>
         <p class="ob-sub">{{ downloadedMb }} / {{ totalMb }} Mo ({{ progressPercent }}%)</p>
+        <p class="ob-sub retry-notice" v-if="retryNotice">{{ retryNotice }}</p>
         <div class="progress-track">
           <div class="progress-fill" :style="{ width: progressPercent + '%' }" />
         </div>
@@ -49,6 +50,7 @@ const checkedCount = ref(0)
 const checkedTotal = ref(0)
 const downloadedBytes = ref(0)
 const totalBytes = ref(0)
+const retryNotice = ref('')
 
 let removeProgressListener = null
 
@@ -99,6 +101,9 @@ onMounted(() => {
       step.value = 'downloading'
       downloadedBytes.value = progress.downloadedBytes
       totalBytes.value = progress.totalBytes
+      retryNotice.value = progress.retry
+        ? `Connexion interrompue, nouvelle tentative ${progress.retry.attempt}/${progress.retry.maxAttempts} pour ${progress.retry.file}...`
+        : ''
     }
   })
 })
@@ -158,6 +163,7 @@ onUnmounted(() => {
 }
 .ob-sub { color: var(--text-muted); font-size: .85rem; margin: 0 0 1.5rem; }
 .ob-sub.error { color: #cc6d6d; }
+.ob-sub.retry-notice { color: #d9a441; margin-top: -1rem; margin-bottom: 1rem; font-size: .78rem; }
 
 .ob-actions { display: flex; flex-direction: column; gap: .65rem; }
 .ob-actions .btn { width: 100%; }

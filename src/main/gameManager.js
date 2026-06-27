@@ -85,7 +85,7 @@ export async function diffManifest(installPath, manifest, onProgress) {
   }
 }
 
-function downloadFile(url, destPath, onChunk) {
+function downloadFileOnce(url, destPath, onChunk) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
     const tmpPath = destPath + '.part'
@@ -113,6 +113,73 @@ function downloadFile(url, destPath, onChunk) {
   })
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 1500
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Télécharge un fichier avec retry automatique (jusqu'à MAX_RETRIES tentatives).
+ * Une coupure réseau ponctuelle ne fait donc plus échouer tout le sync : seul
+ * le fichier en cours est retenté, après un court délai. Si onRetry est fourni,
+ * il est appelé à chaque nouvelle tentative pour informer l'UI (ex: "Nouvelle
+ * tentative 2/3 pour patch-3.MPQ"). Les bytes déjà comptés pour les tentatives
+ * ratées sont retirés via onChunk(-bytesDejaComptes) pour ne pas fausser la
+ * barre de progression globale.
+ */
+async function downloadFile(url, destPath, onChunk, onRetry, fileLabel) {
+  let lastErr
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let bytesThisAttempt = 0
+    try {
+      await downloadFileOnce(url, destPath, (len) => {
+        bytesThisAttempt += len
+        onChunk?.(len)
+      })
+      return
+    } catch (err) {
+      lastErr = err
+      // On retire de la progression les bytes comptés pour cette tentative ratée
+      if (bytesThisAttempt) onChunk?.(-bytesThisAttempt)
+      if (attempt < MAX_RETRIES) {
+        onRetry?.({ file: fileLabel, attempt: attempt + 1, maxAttempts: MAX_RETRIES, error: err.message })
+        await wait(RETRY_DELAY_MS * attempt)
+      }
+    }
+  }
+  throw lastErr
+}
+
+/**
+ * Vérifie qu'il reste assez d'espace disque libre sur le volume d'installPath
+ * avant de démarrer un téléchargement potentiellement volumineux. Ajoute une
+ * marge de 5% (ou 100 Mo minimum) pour couvrir l'overhead des fichiers temporaires
+ * .part et les imprécisions d'estimation.
+ */
+async function checkDiskSpace(installPath, requiredBytes) {
+  if (!requiredBytes) return { ok: true }
+  fs.mkdirSync(installPath, { recursive: true })
+  let free
+  try {
+    const stat = await fs.promises.statfs(installPath)
+    free = stat.bavail * stat.bsize
+  } catch {
+    // statfs indisponible (vieille version de Node ou plateforme non supportée) :
+    // on ne bloque pas le téléchargement, on ne peut juste pas vérifier en amont.
+    return { ok: true, unknown: true }
+  }
+
+  const margin = Math.max(requiredBytes * 0.05, 100 * 1024 * 1024)
+  const required = requiredBytes + margin
+
+  if (free < required) {
+    return { ok: false, free, required }
+  }
+  return { ok: true, free, required }
+}
+
 /**
  * Télécharge tous les fichiers manquants/modifiés, avec callback de progression
  * (bytes téléchargés / total) pour alimenter la barre de progression UI.
@@ -124,10 +191,18 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
     const url = getUrlForFile(manifestBaseUrl, file.path)
     const dest = path.join(installPath, file.path)
 
-    await downloadFile(url, dest, (chunkLen) => {
-      downloadedBytes += chunkLen
-      onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path })
-    })
+    await downloadFile(
+      url,
+      dest,
+      (chunkLen) => {
+        downloadedBytes += chunkLen
+        onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path })
+      },
+      (retryInfo) => {
+        onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path, retry: retryInfo })
+      },
+      file.path
+    )
   }
 }
 
@@ -152,6 +227,15 @@ export async function syncGame(installPath, onProgress) {
   const { toDownload, totalBytes } = await diffManifest(installPath, manifest, onProgress)
 
   if (toDownload.length) {
+    const space = await checkDiskSpace(installPath, totalBytes)
+    if (!space.ok) {
+      const freeMB = (space.free / 1024 / 1024).toFixed(0)
+      const requiredMB = (space.required / 1024 / 1024).toFixed(0)
+      throw new Error(
+        `Espace disque insuffisant : ${freeMB} Mo disponibles, ${requiredMB} Mo nécessaires. Libère de l'espace puis réessaie.`
+      )
+    }
+
     onProgress?.({ phase: 'downloading', downloadedBytes: 0, totalBytes })
     await downloadFiles(installPath, toDownload, MANIFEST_URL, totalBytes, onProgress)
   }
