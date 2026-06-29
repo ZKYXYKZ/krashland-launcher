@@ -6,7 +6,7 @@ import http from 'http'
 import axios from 'axios'
 import config from './config.js'
 
-const { MANIFEST_URL, REALMLIST } = config
+const { MANIFEST_URL, REALMLIST, REALMLIST_LOCALE } = config
 
 /**
  * Gère la vérification et le téléchargement des fichiers du client WoW.
@@ -258,10 +258,24 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
 }
 
 function ensureRealmlist(installPath) {
-  const realmlistPath = path.join(installPath, 'realmlist.wtf')
+  // Le seul realmlist.wtf réellement lu par le client 3.3.5 est celui dans
+  // Data/<locale>/ — celui qu'on écrivait par erreur à la racine du dossier
+  // d'install n'a jamais été pris en compte par le jeu, et est supprimé ici
+  // chez les joueurs qui l'ont déjà (inutile, ne sert à rien).
+  const legacyRootPath = path.join(installPath, 'realmlist.wtf')
+  if (fs.existsSync(legacyRootPath)) {
+    try {
+      fs.unlinkSync(legacyRootPath)
+    } catch {
+      // Pas bloquant si la suppression échoue (ex: fichier verrouillé) —
+      // il reste juste un fichier orphelin inoffensif.
+    }
+  }
+
+  const realmlistPath = path.join(installPath, 'Data', REALMLIST_LOCALE, 'realmlist.wtf')
   // On n'écrase jamais ce fichier s'il existe déjà (au cas où le joueur l'a custom)
   if (!fs.existsSync(realmlistPath)) {
-    fs.mkdirSync(installPath, { recursive: true })
+    fs.mkdirSync(path.dirname(realmlistPath), { recursive: true })
     fs.writeFileSync(realmlistPath, REALMLIST + '\r\n')
   }
 }

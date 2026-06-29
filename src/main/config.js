@@ -14,6 +14,11 @@ export default {
   DISCORD_URL: 'https://discord.gg/MfWpPBDCcm',
   VOTE_URL: 'https://serveur-prive.net/world-of-warcraft/krashland/vote',
 
-  // Realmlist par défaut écrit dans realmlist.wtf lors de l'install
-  REALMLIST: 'set realmlist logon.krashland.fr'
+  // Realmlist par défaut écrit dans Data/frFR/realmlist.wtf lors de l'install
+  // (c'est le seul realmlist.wtf lu par le client 3.3.5 — celui à la racine
+  // du dossier d'install n'est jamais pris en compte par le jeu).
+  REALMLIST: 'set realmlist krashland.fr',
+
+  // Locale du client distribué : dossier Data/<LOCALE>/ où vit le vrai realmlist.wtf.
+  REALMLIST_LOCALE: 'frFR'
 }
