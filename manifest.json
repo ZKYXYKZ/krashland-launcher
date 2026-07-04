@@ -1,8 +1,8 @@
 {
-  "version": "1.0.3",
-  "generatedAt": "2026-06-30T18:49:24.520Z",
+  "version": "1.0.4",
+  "generatedAt": "2026-07-04T17:21:01.130Z",
   "fileCount": 62,
-  "totalSize": 19802146827,
+  "totalSize": 19871852933,
   "files": [
     {
       "path": "Battle.net.dll",
@@ -120,9 +120,9 @@
     },
     {
       "path": "Data/patch-A.mpq",
-      "size": 267570154,
-      "sha256": "a80586176f47a5150b8a9693b433298d663188a73d49f6c147de5e8d7033f7f0",
-      "mtime": 1782844352
+      "size": 5528165,
+      "sha256": "dd0188cf2aa31d09dd17a40dbfad61755764d3fb7fc739ae3a51925e493e8741",
+      "mtime": 1783185630
     },
     {
       "path": "Data/patch-B.mpq",
@@ -144,9 +144,9 @@
     },
     {
       "path": "Data/patch-E.mpq",
-      "size": 129877279,
-      "sha256": "1079afd2bd96aa4310eb286d19da583d000ef6f9b4e551c91cb6694f518aa829",
-      "mtime": 1782422366
+      "size": 129901116,
+      "sha256": "7d9dbd4563e398f7bc143d1a192bc3941aca60629b69108c714138c357babcd7",
+      "mtime": 1783185622
     },
     {
       "path": "Data/patch-F.mpq",
@@ -155,10 +155,10 @@
       "mtime": 1782421897
     },
     {
-      "path": "Data/patch-G.mpq",
-      "size": 475512856,
-      "sha256": "861607e027055aedbbf9ced63888456145583c6b30a92b4abb9062fc854487ee",
-      "mtime": 1782421863
+      "path": "Data/Patch-G.mpq",
+      "size": 807237114,
+      "sha256": "72160a1e390dd9c5f67c6e56debc3d87e09551b74b51b144e7e6371f791055a4",
+      "mtime": 1783185619
     },
     {
       "path": "Data/patch-L.MPQ",
