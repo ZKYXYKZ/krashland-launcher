@@ -11,12 +11,9 @@ import { onMounted } from 'vue'
 import TitleBar from '@/components/TitleBar.vue'
 import MainView from '@/views/MainView.vue'
 import UpdateBanner from '@/components/UpdateBanner.vue'
+import { useAudio } from '@/composables/useAudio'
 
-import sakuraUrl from '@/assets/sakura.mp3'
+const { play } = useAudio()
 
-onMounted(() => {
-  const audio = new Audio(sakuraUrl)
-  audio.volume = 0.3
-  audio.play().catch(() => {})
-})
+onMounted(() => play())
 </script>

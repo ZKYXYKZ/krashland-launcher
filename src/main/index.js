@@ -133,6 +133,9 @@ ipcMain.handle('game:play', async () => {
   playInProgress = true
   try {
     launchGame(installPath)
+    // Ferme le launcher après le lancement du jeu — le joueur n'en a plus besoin
+    // et WoW tourne en processus indépendant (child.unref() dans gameLauncher.js).
+    setTimeout(() => mainWindow?.close(), 1000)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }

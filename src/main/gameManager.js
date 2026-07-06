@@ -119,13 +119,7 @@ export async function diffManifest(installPath, manifest, onProgress) {
   }
 }
 
-// onFinalizing() est appelé dès que tous les bytes réseau sont reçus, mais
-// AVANT que l'écriture disque + le rename du .part soient confirmés. Sur un
-// disque lent, un antivirus qui scanne chaque fichier, ou un dossier d'install
-// synchronisé par un client cloud (OneDrive/Dropbox), cette étape peut prendre
-// plusieurs minutes alors que la barre de progression (basée sur les bytes
-// reçus) affiche déjà 100% — sans ce signal distinct, le launcher paraît bloqué.
-function downloadFileOnce(url, destPath, onChunk, onFinalizing) {
+function downloadFileOnce(url, destPath, onChunk) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
     const tmpPath = destPath + '.part'
@@ -139,7 +133,6 @@ function downloadFileOnce(url, destPath, onChunk, onFinalizing) {
         return reject(new Error(`HTTP ${res.statusCode} pour ${url}`))
       }
       res.on('data', (chunk) => onChunk?.(chunk.length))
-      res.on('end', () => onFinalizing?.())
       res.pipe(fileStream)
       fileStream.on('finish', () => {
         fileStream.close()
@@ -170,20 +163,15 @@ function wait(ms) {
  * ratées sont retirés via onChunk(-bytesDejaComptes) pour ne pas fausser la
  * barre de progression globale.
  */
-async function downloadFile(url, destPath, onChunk, onRetry, fileLabel, onFinalizing) {
+async function downloadFile(url, destPath, onChunk, onRetry, fileLabel) {
   let lastErr
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     let bytesThisAttempt = 0
     try {
-      await downloadFileOnce(
-        url,
-        destPath,
-        (len) => {
-          bytesThisAttempt += len
-          onChunk?.(len)
-        },
-        onFinalizing
-      )
+      await downloadFileOnce(url, destPath, (len) => {
+        bytesThisAttempt += len
+        onChunk?.(len)
+      })
       return
     } catch (err) {
       lastErr = err
@@ -247,12 +235,7 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
       (retryInfo) => {
         onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path, retry: retryInfo })
       },
-      file.path,
-      () => {
-        // Tous les bytes sont reçus, mais l'écriture disque + le rename ne sont
-        // pas encore confirmés : on le signale distinctement de "downloading".
-        onProgress?.({ phase: 'finalizing', downloadedBytes, totalBytes, currentFile: file.path })
-      }
+      file.path
     )
   }
 }
@@ -303,6 +286,10 @@ export async function syncGame(installPath, onProgress) {
 
     onProgress?.({ phase: 'downloading', downloadedBytes: 0, totalBytes })
     await downloadFiles(installPath, toDownload, MANIFEST_URL, totalBytes, onProgress)
+    // Tous les fichiers sont téléchargés ET écrits sur disque (rename .part → dest confirmé).
+    // On émet 'finalizing' une seule fois ici (pas par fichier) pour indiquer
+    // que l'écriture de la realmlist et les dernières finalisations sont en cours.
+    onProgress?.({ phase: 'finalizing' })
   }
 
   ensureRealmlist(installPath)

@@ -4,6 +4,9 @@
       <span class="titlebar-logo glow-gold">⚔️ Krashland<span v-if="version" class="titlebar-version"> ({{ version }})</span></span>
     </div>
     <div class="titlebar-controls">
+      <button class="tb-btn tb-mute" @click="toggleMute" :title="muted ? 'Activer le son' : 'Couper le son'">
+        {{ muted ? '🔇' : '🔊' }}
+      </button>
       <button class="tb-btn" @click="minimize" title="Réduire">─</button>
       <button class="tb-btn" @click="maximizeToggle" title="Agrandir">▢</button>
       <button class="tb-btn tb-close" @click="close" title="Fermer">✕</button>
@@ -13,8 +16,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useAudio } from '@/composables/useAudio'
 
 const version = ref('')
+const { muted, toggleMute } = useAudio()
 
 function minimize() { window.krash.window.minimize() }
 function maximizeToggle() { window.krash.window.maximizeToggle() }
@@ -72,4 +77,5 @@ onMounted(async () => {
 }
 .tb-btn:hover { background: var(--bg-card-hover); color: var(--gold-light); }
 .tb-close:hover { background: #6b2d2d; color: #fff; }
+.tb-mute { font-size: .85rem; }
 </style>
