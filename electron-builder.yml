@@ -30,9 +30,10 @@ linux:
   category: Game
 
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true          # installation silencieuse sans wizard (Discord-style)
+  perMachine: false       # installe dans %LOCALAPPDATA%, pas besoin de droits admin
   createDesktopShortcut: true
+  createStartMenuShortcut: true
 
 publish:
   provider: github

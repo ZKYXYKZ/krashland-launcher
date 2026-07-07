@@ -119,6 +119,9 @@ export async function diffManifest(installPath, manifest, onProgress) {
   }
 }
 
+// Délai sans données avant d'avorter la connexion et de laisser le retry jouer.
+const STALL_TIMEOUT_MS = 30000
+
 function downloadFileOnce(url, destPath, onChunk) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
@@ -126,24 +129,52 @@ function downloadFileOnce(url, destPath, onChunk) {
     const fileStream = fs.createWriteStream(tmpPath)
     const client = url.startsWith('https') ? https : http
 
+    let done = false
+    let stallTimer = null
+
+    function cleanup(err) {
+      if (done) return
+      done = true
+      if (stallTimer) clearTimeout(stallTimer)
+      fileStream.destroy()
+      fs.unlink(tmpPath, () => {})
+      if (err) reject(err)
+    }
+
+    function resetStall() {
+      if (stallTimer) clearTimeout(stallTimer)
+      stallTimer = setTimeout(() => {
+        req.destroy(new Error('Timeout : aucune donnée reçue depuis 30s, connexion coupée'))
+      }, STALL_TIMEOUT_MS)
+    }
+
     const req = client.get(url, (res) => {
       if (res.statusCode !== 200) {
-        fileStream.close()
-        fs.unlink(tmpPath, () => {})
-        return reject(new Error(`HTTP ${res.statusCode} pour ${url}`))
+        return cleanup(new Error(`HTTP ${res.statusCode} pour ${url}`))
       }
-      res.on('data', (chunk) => onChunk?.(chunk.length))
+
+      resetStall()
+      res.on('data', (chunk) => {
+        onChunk?.(chunk.length)
+        resetStall() // réinitialise le timer tant que des données arrivent
+      })
       res.pipe(fileStream)
+
+      // ⚠️ Ce handler était manquant : sans lui, une erreur d'écriture disque
+      // (antivirus, disque plein, fichier verrouillé) laissait la Promise en
+      // suspens indéfiniment → blocage sur "Finalisation..." sans jamais résoudre.
+      fileStream.on('error', (err) => cleanup(err))
+
       fileStream.on('finish', () => {
+        if (done) return
+        done = true
+        if (stallTimer) clearTimeout(stallTimer)
         fileStream.close()
         fs.rename(tmpPath, destPath, (err) => (err ? reject(err) : resolve()))
       })
     })
-    req.on('error', (err) => {
-      fileStream.close()
-      fs.unlink(tmpPath, () => {})
-      reject(err)
-    })
+
+    req.on('error', (err) => cleanup(err))
   })
 }
 

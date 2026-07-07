@@ -51,7 +51,9 @@ export function setupAutoUpdate(send) {
     // Installation automatique, sans action du joueur : quitAndInstall() ferme proprement
     // le launcher puis lance l'installeur, ce qui évite le blocage NSIS observé quand
     // l'app se fermait "normalement" pendant que l'installeur tentait déjà de la tuer.
-    setTimeout(() => autoUpdater.quitAndInstall(), 1500)
+    // isSilent=true  → pas de fenêtre d'installeur (Discord-style)
+    // isForceRunAfter=true → relance le launcher automatiquement après l'update
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
   })
 
   autoUpdater.on('error', (err) => {
