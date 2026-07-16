@@ -1,6 +1,6 @@
 {
   "name": "krashland-launcher",
-  "version": "0.1.11",
+  "version": "1.0.1",
   "description": "Launcher officiel Krashland - WoW 3.3.5",
   "main": "out/main/index.js",
   "author": "Krashland",

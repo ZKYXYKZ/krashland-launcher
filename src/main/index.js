@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import Store from 'electron-store'
-import { syncGame, fetchManifestVersion } from './gameManager.js'
+import { syncGame, fetchManifestVersion, findObsoleteFiles, deleteObsoleteFiles } from './gameManager.js'
 import { launchGame } from './gameLauncher.js'
 import { setupAutoUpdate } from './autoUpdate.js'
 import config from './config.js'
@@ -106,13 +106,19 @@ ipcMain.handle('game:sync', async (event) => {
   syncInProgress = true
   try {
     const result = await syncGame(installPath, (progress) => {
-      event.sender.send('game:sync-progress', progress)
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('game:sync-progress', progress)
+      }
     })
-    // Le check complet a réussi : on peut sauter ce check aux prochains lancements
     store.set('game.installVerified', true)
-    // Mémorise la version du manifest tout juste synchronisée, pour pouvoir
-    // détecter une future mise à jour de contenu sans refaire un check complet.
     if (result.version) store.set('game.manifestVersion', result.version)
+    if (result.manifestFiles) {
+      // On garde l'ancien manifest en "prev" pour que le bouton "Nettoyer" dans
+      // Options puisse comparer avant/après et identifier les fichiers retirés.
+      const prev = store.get('game.manifestFiles') || []
+      store.set('game.prevManifestFiles', prev)
+      store.set('game.manifestFiles', result.manifestFiles)
+    }
     return { ok: true, ...result }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -158,6 +164,35 @@ ipcMain.handle('game:checkVersion', async () => {
   } catch (err) {
     return { ok: false, error: err.message }
   }
+})
+
+// Retourne les fichiers retirés du manifest depuis le dernier sync.
+// Comparaison prevManifestFiles (avant sync) vs manifestFiles (après sync).
+// Seuls ces fichiers peuvent être proposés à la suppression — jamais les
+// fichiers ajoutés manuellement par le joueur (patches HD, addons custom…).
+ipcMain.handle('game:findObsolete', () => {
+  const installPath = store.get('game.installPath')
+  if (!installPath) return { ok: false, error: "Dossier d'installation non défini" }
+  const prev    = store.get('game.prevManifestFiles') || []
+  const current = { files: (store.get('game.manifestFiles') || []).map(p => ({ path: p })) }
+  const files   = findObsoleteFiles(installPath, prev, current)
+  return { ok: true, files }
+})
+
+// Supprime les fichiers confirmés par le joueur via la boîte de dialogue dans Options.
+ipcMain.handle('game:deleteObsolete', (_e, files) => {
+  const installPath = store.get('game.installPath')
+  if (!installPath) return { ok: false, error: "Dossier d'installation non défini" }
+  if (!Array.isArray(files) || !files.length) return { ok: true, removed: [] }
+  const removed = deleteObsoleteFiles(installPath, files)
+  return { ok: true, removed }
+})
+
+// Ouvre le dossier de logs du launcher dans l'explorateur Windows.
+// Utile pour récupérer des infos de debug chez un joueur sans avoir à lui
+// expliquer comment naviguer dans %AppData%.
+ipcMain.handle('game:openLogs', () => {
+  shell.openPath(app.getPath('logs'))
 })
 
 // ── Auto-update du launcher (GitHub Releases privé) ──

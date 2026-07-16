@@ -23,7 +23,10 @@ contextBridge.exposeInMainWorld('krash', {
       ipcRenderer.on('game:sync-progress', handler)
       return () => ipcRenderer.removeListener('game:sync-progress', handler)
     },
-    play: () => ipcRenderer.invoke('game:play')
+    play: () => ipcRenderer.invoke('game:play'),
+    findObsolete: () => ipcRenderer.invoke('game:findObsolete'),
+    deleteObsolete: (files) => ipcRenderer.invoke('game:deleteObsolete', files),
+    openLogs: () => ipcRenderer.invoke('game:openLogs')
   },
   update: {
     check: () => ipcRenderer.invoke('update:check'),

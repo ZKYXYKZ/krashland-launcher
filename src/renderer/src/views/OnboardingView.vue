@@ -12,15 +12,23 @@
         </div>
       </template>
 
+      <template v-else-if="step === 'suspending-cloud-sync'">
+        <h2 class="ob-title">Pause synchronisation cloud...</h2>
+        <p class="ob-sub">OneDrive est suspendu le temps de l'installation. Il redémarrera automatiquement.</p>
+        <div class="ob-spinner"><span class="spinner" /></div>
+      </template>
+
       <template v-else-if="step === 'checking'">
         <h2 class="ob-title">Vérification des fichiers...</h2>
-        <p class="ob-sub" v-if="checkedTotal">{{ checkedCount }} / {{ checkedTotal }} fichiers vérifiés</p>
+        <p class="ob-sub" v-if="checkedTotal">
+          {{ checkedCount }} / {{ checkedTotal }} fichiers vérifiés<template v-if="etaLabel"> — {{ etaLabel }}</template>
+        </p>
         <div class="ob-spinner"><span class="spinner" /></div>
       </template>
 
       <template v-else-if="step === 'downloading'">
         <h2 class="ob-title">Téléchargement en cours...</h2>
-        <p class="ob-sub">{{ downloadedMb }} / {{ totalMb }} Mo ({{ progressPercent }}%)</p>
+        <p class="ob-sub">{{ downloadedMb }} / {{ totalMb }} Mo ({{ progressPercent }}%)<template v-if="etaLabel"> — {{ etaLabel }}</template></p>
         <p class="ob-sub retry-notice" v-if="retryNotice">{{ retryNotice }}</p>
         <div class="progress-track">
           <div class="progress-fill" :style="{ width: progressPercent + '%' }" />
@@ -28,8 +36,10 @@
       </template>
 
       <template v-else-if="step === 'finalizing'">
-        <h2 class="ob-title">Finalisation...</h2>
-        <p class="ob-sub">Écriture des derniers fichiers sur le disque, presque terminé.</p>
+        <h2 class="ob-title">Écriture sur le disque...</h2>
+        <p class="ob-sub">
+          {{ finalizingFile ? `Copie de ${finalizingFile}` : 'Écriture des fichiers...' }}<template v-if="finalizingTotal > 1"> ({{ finalizingDone + 1 }}/{{ finalizingTotal }})</template>
+        </p>
         <div class="ob-spinner"><span class="spinner" /></div>
       </template>
 
@@ -57,6 +67,17 @@ const checkedTotal = ref(0)
 const downloadedBytes = ref(0)
 const totalBytes = ref(0)
 const retryNotice = ref('')
+const finalizingFile = ref('')
+const finalizingDone = ref(0)
+const finalizingTotal = ref(0)
+const etaSeconds = ref(null)
+
+function formatEta(sec) {
+  if (sec === null || sec === undefined || sec < 10 || !isFinite(sec)) return null
+  if (sec < 60) return `~${Math.round(sec)}s`
+  return `~${Math.round(sec / 60)} min`
+}
+const etaLabel = computed(() => formatEta(etaSeconds.value))
 
 let removeProgressListener = null
 
@@ -99,21 +120,27 @@ async function runCheck() {
 
 onMounted(() => {
   removeProgressListener = window.krash.game.onSyncProgress((progress) => {
-    if (progress.phase === 'checking') {
+    if (progress.phase === 'suspending-cloud-sync') {
+      step.value = 'suspending-cloud-sync'
+    } else if (progress.phase === 'checking') {
       step.value = 'checking'
       checkedCount.value = progress.checked
       checkedTotal.value = progress.total
+      etaSeconds.value = progress.etaSeconds ?? null
     } else if (progress.phase === 'downloading') {
       step.value = 'downloading'
       downloadedBytes.value = progress.downloadedBytes
       totalBytes.value = progress.totalBytes
+      etaSeconds.value = progress.etaSeconds ?? null
       retryNotice.value = progress.retry
         ? `Connexion interrompue, nouvelle tentative ${progress.retry.attempt}/${progress.retry.maxAttempts} pour ${progress.retry.file}...`
         : ''
     } else if (progress.phase === 'finalizing') {
       step.value = 'finalizing'
-      downloadedBytes.value = progress.downloadedBytes
-      totalBytes.value = progress.totalBytes
+      finalizingFile.value = progress.currentFile || ''
+      finalizingDone.value = progress.filesDone ?? 0
+      finalizingTotal.value = progress.filesTotal ?? 1
+      etaSeconds.value = null
     }
   })
 })

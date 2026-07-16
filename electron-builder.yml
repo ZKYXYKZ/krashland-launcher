@@ -30,10 +30,12 @@ linux:
   category: Game
 
 nsis:
-  oneClick: true          # installation silencieuse sans wizard (Discord-style)
-  perMachine: false       # installe dans %LOCALAPPDATA%, pas besoin de droits admin
+  oneClick: true        # install & updates 100% silencieuses — le script NSIS ferme
+  perMachine: false     # proprement le process avant d'écraser les fichiers (évite l'EPERM).
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  # Dossier cible : %LOCALAPPDATA%\Programs\krashland-launcher (pas besoin de droits admin).
+  # quitAndInstall(true, true) dans autoUpdate.js → relance automatique après update.
 
 publish:
   provider: github

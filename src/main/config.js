@@ -9,6 +9,12 @@ export default {
   // juste "manifest.json" par son chemin relatif (voir gameManager.js, getUrlForFile).
   MANIFEST_URL: process.env.KRASH_MANIFEST_URL || 'https://www.krashland.fr/repo/client/manifest.json',
 
+  // Serveur de secours : utilisé si le serveur principal est injoignable pour le manifest
+  // ou pour un fichier individuel (après épuisement des retries sur le primaire).
+  // Doit exposer la même arborescence que MANIFEST_URL (manifest.json + Data/, etc.).
+  // null = pas de fallback configuré.
+  MANIFEST_FALLBACK_URL: process.env.KRASH_MANIFEST_FALLBACK_URL || 'http://51.75.19.40/manifest.json',
+
   // Liens externes
   WEBSITE_URL: process.env.KRASH_WEBSITE_URL || 'https://krashland.fr',
   DISCORD_URL: 'https://discord.gg/MfWpPBDCcm',

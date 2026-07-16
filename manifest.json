@@ -1,14 +1,20 @@
 {
-  "version": "1.0.5",
-  "generatedAt": "2026-07-05T07:26:26.154Z",
-  "fileCount": 62,
-  "totalSize": 20801785723,
+  "version": "1.0.10",
+  "generatedAt": "2026-07-16T03:36:40.850Z",
+  "fileCount": 66,
+  "totalSize": 20870628070,
   "files": [
     {
       "path": "Battle.net.dll",
       "size": 15588224,
       "sha256": "88116951b04723cbb1073a1a0ff72dfdc40367f6649dffd08c602caa3ef1141f",
       "mtime": 1777746162
+    },
+    {
+      "path": "d3d9.dll",
+      "size": 20992,
+      "sha256": "fbc93f9629d51412addc268fb60c93eece18e364cf95de0dd6456fba18958672",
+      "mtime": 1784057275
     },
     {
       "path": "Data/common-2.MPQ",
@@ -119,52 +125,58 @@
       "mtime": 1777746499
     },
     {
-      "path": "Data/patch-A.mpq",
-      "size": 5528165,
-      "sha256": "dd0188cf2aa31d09dd17a40dbfad61755764d3fb7fc739ae3a51925e493e8741",
-      "mtime": 1783185630
+      "path": "Data/Patch-A.MPQ",
+      "size": 2066628805,
+      "sha256": "0913f90547f2c2bfe8d5538d7b74a55ab402ace98fecf388d24f4dc687255214",
+      "mtime": 1547070832
     },
     {
-      "path": "Data/patch-B.mpq",
-      "size": 1597374978,
-      "sha256": "16accbe2069f50d82c1345c467ae7152e8309cf4455ef1fd747980b47bd1783d",
-      "mtime": 1783236179
-    },
-    {
-      "path": "Data/patch-C.mpq",
-      "size": 524835986,
-      "sha256": "c49ed1a0f26a93292b8453bb1cb7c67d20f20c15abb4e0f4df5f5e32ed913bef",
-      "mtime": 1782421899
-    },
-    {
-      "path": "Data/patch-D.mpq",
-      "size": 350467247,
-      "sha256": "c695cf19d2e7970a4bf696c2c4ec6e00c2a3b0fd3d3324286a579dad2ed61a48",
-      "mtime": 1782421898
-    },
-    {
-      "path": "Data/patch-E.mpq",
-      "size": 129901116,
-      "sha256": "7d9dbd4563e398f7bc143d1a192bc3941aca60629b69108c714138c357babcd7",
-      "mtime": 1783185622
-    },
-    {
-      "path": "Data/patch-F.mpq",
-      "size": 60472631,
-      "sha256": "646ca04510488b0de040939746e88309df87b6d2f013a31f00192c5bab78b953",
-      "mtime": 1782421897
-    },
-    {
-      "path": "Data/Patch-G.mpq",
-      "size": 807237114,
-      "sha256": "72160a1e390dd9c5f67c6e56debc3d87e09551b74b51b144e7e6371f791055a4",
-      "mtime": 1783185619
+      "path": "Data/patch-G.mpq",
+      "size": 509537037,
+      "sha256": "cff8e3d085c3165d87682b8e6e9e06d5576448e214a5b817ae6397e4f763ccfb",
+      "mtime": 1784172691
     },
     {
       "path": "Data/patch-L.MPQ",
       "size": 73306856,
       "sha256": "b56bef88cbf007e7af53ae6626377854aaf8a82dd8976a6d100ba104154d9eca",
       "mtime": 1777746558
+    },
+    {
+      "path": "Data/Patch-W.mpq",
+      "size": 92790696,
+      "sha256": "cac412b69247d13e62a0949ca08309ff1f50ce2ee1fb8f95a3fe57bbfa783c3a",
+      "mtime": 1784137776
+    },
+    {
+      "path": "Data/Patch-XR.mpq",
+      "size": 320832922,
+      "sha256": "93ee061acf245e8fd195895f51af5279d7cc4e8cebb197fe33525305d4860931",
+      "mtime": 1784137959
+    },
+    {
+      "path": "Data/Patch-XS.mpq",
+      "size": 309103977,
+      "sha256": "38695aee401392fb0b3422668ad2d236a2d016eab6ebc28027a12ffc09c5ecff",
+      "mtime": 1784137889
+    },
+    {
+      "path": "Data/Patch-XT.mpq",
+      "size": 69692489,
+      "sha256": "2ce1b2592672175cf1c523199d472de1259b0530ef68a3380c3dc7f0039114e3",
+      "mtime": 1784137856
+    },
+    {
+      "path": "Data/Patch-YW.mpq",
+      "size": 140393205,
+      "sha256": "02b9c7205a33bbe0bf9a62f5acb4cb7cb9efa9abfb150444f189ba2b4c3a5a03",
+      "mtime": 1784139333
+    },
+    {
+      "path": "Data/Patch-Z.mpq",
+      "size": 33979741,
+      "sha256": "4e171aee8b88d7ab3e2a1579c541e1918d72364c2380d595884f30f7dcfea70b",
+      "mtime": 1784138105
     },
     {
       "path": "Data/patch.MPQ",
@@ -365,10 +377,22 @@
       "mtime": 1777746658
     },
     {
+      "path": "Utils/WarcraftXLHost.exe",
+      "size": 783872,
+      "sha256": "fb0d1499614743f4e0e4b221496cb3e4864ac1537204f37030dc07a793c6463c",
+      "mtime": 1784057385
+    },
+    {
+      "path": "WarcraftXL.dll",
+      "size": 894976,
+      "sha256": "c9c8644dd424b7134028841af801d849d01fb4f1e28aa8eee84b0dc3b0d8bfce",
+      "mtime": 1784057318
+    },
+    {
       "path": "Wow.exe",
-      "size": 7704216,
-      "sha256": "0052ef1fc4d725c6b36ba2b4f4abdcfd0e2b7b016e62e094cb7e7359a5ab84a3",
-      "mtime": 1777746657
+      "size": 7705088,
+      "sha256": "c0efd140963e99773e667ffd9ca7e37f76ae7ce2f6729c9145d9c373e2ca0be6",
+      "mtime": 1784057385
     },
     {
       "path": "WowError.exe",

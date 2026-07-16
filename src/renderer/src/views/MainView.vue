@@ -10,6 +10,13 @@
         <a class="side-link" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">⚙️ Options</a>
       </nav>
 
+      <div class="server-block">
+        <div class="server-status">
+          <span class="server-dot" :class="serverDotClass" />
+          <span class="server-text">{{ serverStatusText }}</span>
+        </div>
+      </div>
+
       <div class="side-links">
         <a class="ext-link" @click="openExternal(websiteUrl)">🌐 Site web</a>
         <a class="ext-link" @click="openExternal(discordUrl)">💬 Discord</a>
@@ -60,6 +67,23 @@
         <button v-if="installPath" class="btn btn-outline btn-recheck" @click="runSync">
           🔄 Vérifier à nouveau les fichiers
         </button>
+        <div v-if="obsoleteFiles.length" class="obsolete-section">
+          <p class="obsolete-notice">
+            {{ obsoleteFiles.length }} fichier{{ obsoleteFiles.length > 1 ? 's' : '' }} retiré{{ obsoleteFiles.length > 1 ? 's' : '' }} du serveur détecté{{ obsoleteFiles.length > 1 ? 's' : '' }} :
+          </p>
+          <ul class="obsolete-list">
+            <li v-for="f in obsoleteFiles" :key="f">{{ f }}</li>
+          </ul>
+          <button class="btn btn-outline btn-danger" @click="deleteObsolete">
+            🗑️ Supprimer ces fichiers
+          </button>
+        </div>
+        <button v-if="installPath && !obsoleteFiles.length" class="btn btn-outline btn-recheck" @click="checkObsolete" style="margin-top:.5rem">
+          🔍 Rechercher des fichiers obsolètes
+        </button>
+        <button class="btn btn-outline btn-recheck" @click="openLogs" style="margin-top:.5rem">
+          📁 Voir les logs
+        </button>
       </div>
 
     </section>
@@ -98,15 +122,25 @@ const syncError = ref('')
 // même en test local (sinon le fetch news tapait toujours krashland.fr en prod).
 const apiBaseUrl = ref('')
 
-// État du jeu : onboarding | no-path | checking | downloading | ready | launching | error
+// État du jeu : onboarding | no-path | checking | downloading | finalizing | ready | launching | error
 const gameStatus = ref('onboarding')
 const downloadedBytes = ref(0)
 const totalBytes = ref(0)
 const checkedCount = ref(0)
 const checkedTotal = ref(0)
+const finalizingFile = ref('')
+const finalizingDone = ref(0)
+const finalizingTotal = ref(0)
+const obsoleteFiles = ref([])
+const etaSeconds = ref(null)
+const serverOnline = ref(null) // null = chargement, true = en ligne, false = hors ligne
+const serverPlayers = ref(0)
 
 let removeProgressListener = null
 let contentUpdateInterval = null
+let serverPollInterval = null
+
+const SERVER_POLL_INTERVAL_MS = 30 * 1000
 
 // Intervalle du check auto de contenu (manifest jeu) tant que le launcher reste ouvert.
 const CONTENT_UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000
@@ -118,30 +152,52 @@ const voteUrl = ref('')
 
 const progressPercent = computed(() => {
   if (!totalBytes.value) return 0
-  return Math.min(100, Math.round((downloadedBytes.value / totalBytes.value) * 100))
+  return Math.min(100, Math.max(0, Math.round((downloadedBytes.value / totalBytes.value) * 100)))
+})
+
+function formatEta(sec) {
+  if (sec === null || sec === undefined || sec < 10 || !isFinite(sec)) return null
+  if (sec < 60) return `~${Math.round(sec)}s`
+  return `~${Math.round(sec / 60)} min`
+}
+const etaLabel = computed(() => formatEta(etaSeconds.value))
+
+const serverDotClass = computed(() => {
+  if (serverOnline.value === null) return 'dot-grey'
+  return serverOnline.value ? 'dot-green' : 'dot-red'
+})
+const serverStatusText = computed(() => {
+  if (serverOnline.value === null) return 'Serveur...'
+  if (!serverOnline.value) return 'Serveur hors ligne'
+  const n = serverPlayers.value
+  return `${n} joueur${n !== 1 ? 's' : ''} en ligne`
 })
 
 const statusClass = computed(() => ({
   'dot-green': gameStatus.value === 'ready',
-  'dot-gold': ['downloading', 'finalizing', 'checking', 'launching'].includes(gameStatus.value),
+  'dot-gold': ['downloading', 'finalizing', 'checking', 'launching', 'suspending-cloud-sync'].includes(gameStatus.value),
   'dot-red': ['error', 'no-path'].includes(gameStatus.value)
 }))
 const statusLabel = computed(() => {
   if (gameStatus.value === 'checking' && checkedTotal.value) {
-    return `Vérification (${checkedCount.value}/${checkedTotal.value})...`
+    const eta = etaLabel.value ? ` — ${etaLabel.value}` : ''
+    return `Vérification (${checkedCount.value}/${checkedTotal.value})${eta}`
   }
   if (gameStatus.value === 'finalizing') {
-    // Tous les bytes sont reçus (barre à 100%) mais l'écriture disque n'est pas
-    // encore confirmée — sans ce libellé distinct, le launcher paraît bloqué.
-    return 'Finalisation...'
+    const suffix = finalizingTotal.value > 1
+      ? ` (${finalizingDone.value + 1}/${finalizingTotal.value})`
+      : ''
+    return `Écriture : ${finalizingFile.value}${suffix}`
   }
   if (gameStatus.value === 'downloading') {
     const mb = (downloadedBytes.value / 1024 / 1024).toFixed(0)
     const totalMb = (totalBytes.value / 1024 / 1024).toFixed(0)
-    return `Téléchargement... ${mb} / ${totalMb} Mo (${progressPercent.value}%)`
+    const eta = etaLabel.value ? ` — ${etaLabel.value}` : ''
+    return `Téléchargement... ${mb} / ${totalMb} Mo (${progressPercent.value}%)${eta}`
   }
   return {
     'no-path': "Choisis un dossier d'installation dans Options",
+    'suspending-cloud-sync': 'Pause synchronisation cloud...',
     checking: 'Vérification des fichiers...',
     ready: 'Prêt à jouer',
     launching: 'Lancement du jeu...',
@@ -149,9 +205,25 @@ const statusLabel = computed(() => {
   }[gameStatus.value] || ''
 })
 const playDisabled = computed(() => gameStatus.value !== 'ready')
-const playLabel = computed(() => (gameStatus.value === 'ready' ? 'JOUER' : '...'))
+const playLabel = computed(() => {
+  if (gameStatus.value === 'launching') return 'Lancement...'
+  return gameStatus.value === 'ready' ? 'JOUER' : '...'
+})
 
 function openExternal(url) { window.open(url, '_blank') }
+function openLogs() { window.krash.game.openLogs() }
+
+async function fetchServerStats() {
+  try {
+    const res = await fetch(`${apiBaseUrl.value}/stats`)
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    serverPlayers.value = data.online ?? 0
+    serverOnline.value = true
+  } catch {
+    serverOnline.value = false
+  }
+}
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -167,6 +239,17 @@ async function chooseFolder() {
     installPath.value = res.path
     runSync()
   }
+}
+
+async function checkObsolete() {
+  const res = await window.krash.game.findObsolete()
+  if (res.ok) obsoleteFiles.value = res.files
+}
+
+async function deleteObsolete() {
+  if (!obsoleteFiles.value.length) return
+  const res = await window.krash.game.deleteObsolete(obsoleteFiles.value)
+  if (res.ok) obsoleteFiles.value = []
 }
 
 // Check complet (potentiellement des centaines/milliers de fichiers) — appelé
@@ -218,6 +301,10 @@ onMounted(async () => {
   discordUrl.value = cfg.discordUrl
   voteUrl.value = cfg.voteUrl
 
+  // Démarrage du polling statut serveur (après résolution de apiBaseUrl)
+  fetchServerStats()
+  serverPollInterval = setInterval(fetchServerStats, SERVER_POLL_INTERVAL_MS)
+
   newsLoading.value = true
   try {
     // Endpoint public déjà existant côté site (admin_news)
@@ -233,18 +320,25 @@ onMounted(async () => {
   }
 
   removeProgressListener = window.krash.game.onSyncProgress((progress) => {
-    if (progress.phase === 'checking') {
+    if (progress.phase === 'suspending-cloud-sync') {
+      gameStatus.value = 'suspending-cloud-sync'
+      etaSeconds.value = null
+    } else if (progress.phase === 'checking') {
       gameStatus.value = 'checking'
       checkedCount.value = progress.checked
       checkedTotal.value = progress.total
+      etaSeconds.value = progress.etaSeconds ?? null
     } else if (progress.phase === 'downloading') {
       gameStatus.value = 'downloading'
       downloadedBytes.value = progress.downloadedBytes
       totalBytes.value = progress.totalBytes
+      etaSeconds.value = progress.etaSeconds ?? null
     } else if (progress.phase === 'finalizing') {
       gameStatus.value = 'finalizing'
-      downloadedBytes.value = progress.downloadedBytes
-      totalBytes.value = progress.totalBytes
+      finalizingFile.value = progress.currentFile || ''
+      finalizingDone.value = progress.filesDone ?? 0
+      finalizingTotal.value = progress.filesTotal ?? 1
+      etaSeconds.value = null
     }
   })
 
@@ -287,6 +381,7 @@ async function checkForContentUpdate() {
 onUnmounted(() => {
   removeProgressListener?.()
   if (contentUpdateInterval) clearInterval(contentUpdateInterval)
+  if (serverPollInterval) clearInterval(serverPollInterval)
 })
 </script>
 
@@ -367,6 +462,12 @@ onUnmounted(() => {
 .path-row .input { flex: 1; font-size: .8rem; }
 .path-row .btn { font-size: .78rem; padding: .5rem .9rem; letter-spacing: 0; text-transform: none; }
 .btn-recheck { margin-top: 1.25rem; font-size: .78rem; padding: .55rem 1rem; letter-spacing: 0; text-transform: none; }
+.btn-danger { color: #cc6d6d; border-color: #cc6d6d44; }
+.btn-danger:hover { background: #cc6d6d22; color: #e08080; }
+.obsolete-section { margin-top: 1.25rem; padding: .75rem 1rem; border: 1px solid #cc6d6d44; border-radius: var(--radius); background: rgba(204,109,109,.06); }
+.obsolete-notice { font-size: .8rem; color: #cc6d6d; margin: 0 0 .5rem; }
+.obsolete-list { margin: 0 0 .75rem 1rem; padding: 0; font-size: .75rem; color: var(--text-muted); list-style: disc; }
+.obsolete-list li { margin-bottom: .2rem; word-break: break-all; }
 
 .play-bar {
   background: linear-gradient(180deg, var(--bg-void), var(--bg-deep));
@@ -383,6 +484,12 @@ onUnmounted(() => {
 .dot-green { background: #6dcc6d; box-shadow: 0 0 8px #6dcc6d; }
 .dot-gold { background: var(--gold); box-shadow: 0 0 8px var(--gold-glow); animation: pulse-dot 1.4s ease-in-out infinite; }
 .dot-red { background: #cc6d6d; box-shadow: 0 0 8px #cc6d6d; }
+.dot-grey { background: #555; }
+
+.server-block { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.server-status { display: flex; align-items: center; gap: .45rem; padding: .3rem .7rem; }
+.server-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.server-text { font-size: .72rem; color: var(--text-muted); }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 .progress-track {
