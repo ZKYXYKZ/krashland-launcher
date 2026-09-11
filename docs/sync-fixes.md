@@ -112,3 +112,35 @@ handler par défaut d'Electron.
   cours, au lieu de redémarrer en plein téléchargement de plusieurs Go.
 - `src/renderer/src/components/UpdateBanner.vue` : phase `ready-waiting` affichée
   pendant ce report.
+
+## Nettoyage et build 1.0.3
+
+Version publiée la plus récente : tag `v1.0.1`. Les correctifs ci-dessus n'ayant jamais
+été distribués, la version passe à `1.0.3`.
+
+Code mort supprimé (rien ne l'importait) :
+
+- `src/main/apiClient.js` — client axios authentifié, vestige de l'époque où le launcher
+  gérait la connexion du joueur.
+- `src/renderer/src/views/LoginView.vue` — même vestige, le joueur se connecte dans le
+  client WoW.
+- `src/renderer/src/constants.js` — fichier vide depuis le passage à `config:get`.
+- `scripts/generate-manifest.js` — doublon obsolète de `tools/generate-manifest.js`,
+  sans aucune exclusion. C'est exactement le script qui, s'il était relancé, réintroduirait
+  `manifest.json` et le launcher dans le manifest. Seul `tools/generate-manifest.js`
+  doit être utilisé.
+
+Dépendances retirées de `package.json` (aucun import dans le code) :
+`@nut-tree-fork/nut-js`, `active-win`, `extract-zip`. Elles restaient de la saisie
+automatique des identifiants, abandonnée depuis. `@nut-tree-fork/nut-js` embarque en plus
+des binaires natifs, source classique d'échec de packaging : 172 paquets en moins.
+
+Build : `npx electron-builder --win --publish never` → `dist/Krashland Launcher Setup 1.0.3.exe`
+(98 Mo) + `latest.yml` + `.blockmap`.
+
+Attention pour la publication : `latest.yml` référence le fichier sous le nom
+`Krashland-Launcher-Setup-1.0.3.exe` (tirets), alors que le fichier sur le disque porte
+des espaces. Un upload manuel sur la release GitHub casse donc l'auto-update (404 côté
+electron-updater). Publier avec `npm run release:win` (GH_TOKEN requis), qui téléverse
+l'exe, le `.blockmap` et le `latest.yml` avec les bons noms, ou renommer l'exe en
+`Krashland-Launcher-Setup-1.0.3.exe` avant l'upload manuel.

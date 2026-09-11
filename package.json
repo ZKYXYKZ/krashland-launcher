@@ -1,6 +1,6 @@
 {
   "name": "krashland-launcher",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Launcher officiel Krashland - WoW 3.3.5",
   "main": "out/main/index.js",
   "author": "Krashland",
@@ -19,12 +19,9 @@
     "release:all": "electron-vite build && electron-builder --win --mac --linux --publish always"
   },
   "dependencies": {
-    "@nut-tree-fork/nut-js": "^4.2.6",
-    "active-win": "^8.2.0",
     "axios": "^1.7.2",
     "electron-store": "^8.2.0",
-    "electron-updater": "^6.3.9",
-    "extract-zip": "^2.0.1"
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.5",
