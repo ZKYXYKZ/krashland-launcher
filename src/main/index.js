@@ -12,6 +12,24 @@ const store = new Store({
 
 let mainWindow = null
 
+/**
+ * Envoi vers le renderer résistant à la destruction de la fenêtre.
+ * Un sync tourne pendant plusieurs minutes : si la fenêtre disparaît entre-temps
+ * (fermeture par le joueur, redémarrage déclenché par l'auto-update du launcher),
+ * le prochain event de progression appelait send() sur un WebContents détruit →
+ * "TypeError: Object has been destroyed" non capturé → boîte d'erreur Electron.
+ * isDestroyed() seul ne suffit pas : la destruction peut survenir côté natif entre
+ * le test et l'envoi, d'où le try/catch.
+ */
+function safeSend(sender, channel, payload) {
+  if (!sender || sender.isDestroyed()) return
+  try {
+    sender.send(channel, payload)
+  } catch {
+    // fenêtre détruite entre-temps : la progression n'intéresse plus personne
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -106,9 +124,7 @@ ipcMain.handle('game:sync', async (event) => {
   syncInProgress = true
   try {
     const result = await syncGame(installPath, (progress) => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send('game:sync-progress', progress)
-      }
+      safeSend(event.sender, 'game:sync-progress', progress)
     })
     store.set('game.installVerified', true)
     if (result.version) store.set('game.manifestVersion', result.version)
@@ -209,9 +225,12 @@ ipcMain.handle('update:install', () => {
 
 app.whenReady().then(() => {
   createWindow()
-  updater = setupAutoUpdate((channel, payload) => {
-    mainWindow?.webContents.send(channel, payload)
-  })
+  updater = setupAutoUpdate(
+    (channel, payload) => safeSend(mainWindow?.webContents, channel, payload),
+    // Tant qu'une synchro du jeu tourne, on ne redémarre pas le launcher pour
+    // installer sa propre mise à jour : ça tuait la fenêtre en plein download.
+    () => syncInProgress
+  )
   // Vérifie une update au démarrage, sans bloquer l'affichage de la fenêtre
   updater.checkNow?.()
 

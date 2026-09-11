@@ -15,13 +15,14 @@ const dismissed = ref(false)
 let removeListener = null
 
 const visible = computed(() =>
-  !dismissed.value && ['available', 'downloading', 'ready', 'error'].includes(phase.value)
+  !dismissed.value && ['available', 'downloading', 'ready', 'ready-waiting', 'error'].includes(phase.value)
 )
 
 const message = computed(() => ({
   available: 'Mise à jour disponible, téléchargement...',
   downloading: `Téléchargement de la mise à jour... ${percent.value}%`,
   ready: 'Mise à jour téléchargée, installation et redémarrage automatique...',
+  'ready-waiting': 'Mise à jour du launcher prête, installation après la synchronisation du jeu.',
   error: "Erreur lors de la vérification des mises à jour (le launcher reste utilisable)."
 }[phase.value] || ''))
 

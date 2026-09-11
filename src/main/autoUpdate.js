@@ -13,7 +13,7 @@ import { app } from 'electron'
  * Émet des événements vers le renderer via send(channel, payload) — fonction
  * injectée pour ne pas dépendre directement de mainWindow ici.
  */
-export function setupAutoUpdate(send) {
+export function setupAutoUpdate(send, isBusy) {
   if (!app.isPackaged) {
     console.log('[autoUpdate] Désactivé en mode développement')
     return { checkNow: async () => ({ ok: false, error: 'Désactivé en dev' }) }
@@ -46,15 +46,31 @@ export function setupAutoUpdate(send) {
     })
   })
 
+  // Délai entre deux tentatives d'installation quand une synchro du jeu est en cours.
+  const INSTALL_RETRY_MS = 20000
+
   autoUpdater.on('update-downloaded', (info) => {
-    send('update:status', { phase: 'ready', version: info.version })
-    // Installation automatique, sans action du joueur : quitAndInstall() ferme proprement
-    // le launcher puis lance l'installeur, ce qui évite le blocage NSIS observé quand
-    // l'app se fermait "normalement" pendant que l'installeur tentait déjà de la tuer.
-    // isSilent=true  → pas de fenêtre d'installeur (Discord-style)
-    // isForceRunAfter=true → relance le launcher automatiquement après l'update
-    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
+    scheduleInstall(info.version)
   })
+
+  // Installation automatique, sans action du joueur : quitAndInstall() ferme proprement
+  // le launcher puis lance l'installeur, ce qui évite le blocage NSIS observé quand
+  // l'app se fermait "normalement" pendant que l'installeur tentait déjà de la tuer.
+  // isSilent=true  → pas de fenêtre d'installeur (Discord-style)
+  // isForceRunAfter=true → relance le launcher automatiquement après l'update
+  //
+  // On attend toutefois la fin d'une éventuelle synchro du jeu : redémarrer en plein
+  // téléchargement de plusieurs Go perdait la progression du fichier en cours et
+  // détruisait la fenêtre pendant que le sync continuait à émettre sa progression.
+  function scheduleInstall(version) {
+    if (isBusy?.()) {
+      send('update:status', { phase: 'ready-waiting', version })
+      setTimeout(() => scheduleInstall(version), INSTALL_RETRY_MS)
+      return
+    }
+    send('update:status', { phase: 'ready', version })
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
+  }
 
   autoUpdater.on('error', (err) => {
     send('update:status', { phase: 'error', error: err.message })

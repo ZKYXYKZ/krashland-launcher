@@ -91,3 +91,24 @@ jamais aux fichiers fraîchement téléchargés, et chaque relance re-hashait le
   - passe 2 : 0 fichier à retélécharger et **0 fichier relu/re-hashé** (fast-path actif,
     mtimes alignés sur le manifest) ;
   - `krashlauncher.exe` et `manifest.json` absents du dossier d'installation.
+
+## Correctif complémentaire — crash « Object has been destroyed »
+
+Symptôme : boîte d'erreur Electron au premier lancement après réinstallation,
+`TypeError: Object has been destroyed` levé depuis le handler `data` d'un
+téléchargement (`onChunk` → `onProgress` → `event.sender.send`).
+
+Cause : le launcher fraîchement installé était en retard d'une version, l'auto-update
+s'est déclenché au démarrage et `quitAndInstall()` a détruit la fenêtre pendant que la
+synchro du jeu tournait encore. L'event de progression suivant a appelé `send()` sur un
+WebContents détruit — le test `isDestroyed()` ne couvre pas la destruction survenant
+côté natif entre le test et l'envoi, et l'exception non capturée remonte jusqu'au
+handler par défaut d'Electron.
+
+- `src/main/index.js` : helper `safeSend()` (test `isDestroyed()` + `try/catch`) utilisé
+  pour la progression de sync et pour les events de l'auto-updater.
+- `src/main/autoUpdate.js` : `setupAutoUpdate(send, isBusy)`. L'installation de la mise
+  à jour du launcher est reportée par tranches de 20 s tant qu'une synchro du jeu est en
+  cours, au lieu de redémarrer en plein téléchargement de plusieurs Go.
+- `src/renderer/src/components/UpdateBanner.vue` : phase `ready-waiting` affichée
+  pendant ce report.
