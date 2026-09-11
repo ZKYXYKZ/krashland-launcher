@@ -4,3 +4,5 @@ dist/
 .env
 *.log
 *.bat
+.krashland-gh-token
+*.token
