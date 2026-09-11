@@ -1,5 +1,6 @@
 import { autoUpdater } from 'electron-updater'
 import { app } from 'electron'
+import log from './logger.js'
 
 /**
  * Auto-update du LAUNCHER lui-même (pas du jeu) via GitHub Releases.
@@ -19,6 +20,7 @@ export function setupAutoUpdate(send, isBusy) {
     return { checkNow: async () => ({ ok: false, error: 'Désactivé en dev' }) }
   }
 
+  autoUpdater.logger = log
   autoUpdater.autoDownload = false // on télécharge seulement après accord implicite (statut affiché à l'utilisateur)
   autoUpdater.autoInstallOnAppQuit = false // on installe nous-mêmes via quitAndInstall() dès le téléchargement terminé (cf. update-downloaded), pour éviter une course entre la fermeture "normale" de l'app et le lancement de l'installeur NSIS
 

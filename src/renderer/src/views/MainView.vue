@@ -99,9 +99,14 @@
           <div class="progress-fill" :style="{ width: progressPercent + '%' }" />
         </div>
       </div>
-      <button class="btn btn-gold btn-play" :disabled="playDisabled" @click="play">
-        {{ playLabel }}
-      </button>
+      <div class="play-actions">
+        <button v-if="gameStatus === 'confirm'" class="btn btn-outline btn-later" @click="declineDownload">
+          Plus tard
+        </button>
+        <button class="btn btn-gold btn-play" :disabled="playDisabled" @click="play">
+          {{ playLabel }}
+        </button>
+      </div>
     </footer>
 
   </div>
@@ -135,8 +140,10 @@ const obsoleteFiles = ref([])
 const etaSeconds = ref(null)
 const serverOnline = ref(null) // null = chargement, true = en ligne, false = hors ligne
 const serverPlayers = ref(0)
+const plan = ref({ totalBytes: 0, fileCount: 0 })
 
 let removeProgressListener = null
+let removeConfirmListener = null
 let contentUpdateInterval = null
 let serverPollInterval = null
 
@@ -175,7 +182,7 @@ const serverStatusText = computed(() => {
 
 const statusClass = computed(() => ({
   'dot-green': gameStatus.value === 'ready',
-  'dot-gold': ['downloading', 'finalizing', 'checking', 'launching', 'suspending-cloud-sync'].includes(gameStatus.value),
+  'dot-gold': ['downloading', 'finalizing', 'checking', 'launching', 'suspending-cloud-sync', 'confirm', 'pending-download'].includes(gameStatus.value),
   'dot-red': ['error', 'no-path'].includes(gameStatus.value)
 }))
 const statusLabel = computed(() => {
@@ -195,6 +202,10 @@ const statusLabel = computed(() => {
     const eta = etaLabel.value ? ` — ${etaLabel.value}` : ''
     return `Téléchargement... ${mb} / ${totalMb} Mo (${progressPercent.value}%)${eta}`
   }
+  if (gameStatus.value === 'confirm' || gameStatus.value === 'pending-download') {
+    const files = `${plan.value.fileCount} fichier${plan.value.fileCount > 1 ? 's' : ''}`
+    return `Mise à jour disponible : ${formatSize(plan.value.totalBytes)} (${files})`
+  }
   return {
     'no-path': "Choisis un dossier d'installation dans Options",
     'suspending-cloud-sync': 'Pause synchronisation cloud...',
@@ -204,12 +215,28 @@ const statusLabel = computed(() => {
     error: syncError.value || 'Erreur de synchronisation'
   }[gameStatus.value] || ''
 })
-const playDisabled = computed(() => !['ready', 'error'].includes(gameStatus.value))
+const playDisabled = computed(() => !['ready', 'error', 'confirm', 'pending-download'].includes(gameStatus.value))
 const playLabel = computed(() => {
   if (gameStatus.value === 'launching') return 'Lancement...'
   if (gameStatus.value === 'error') return 'RÉESSAYER'
+  if (gameStatus.value === 'confirm' || gameStatus.value === 'pending-download') return 'TÉLÉCHARGER'
   return gameStatus.value === 'ready' ? 'JOUER' : '...'
 })
+
+function formatSize(bytes) {
+  const go = bytes / 1073741824
+  if (go >= 1) return `${go.toFixed(1).replace('.', ',')} Go`
+  return `${Math.round(bytes / 1048576)} Mo`
+}
+
+function acceptDownload() {
+  gameStatus.value = 'downloading'
+  window.krash.game.replyConfirmDownload(true)
+}
+
+function declineDownload() {
+  window.krash.game.replyConfirmDownload(false)
+}
 
 function openExternal(url) { window.open(url, '_blank') }
 function openLogs() { window.krash.game.openLogs() }
@@ -268,7 +295,11 @@ async function runSync() {
   totalBytes.value = 0
 
   const res = await window.krash.game.sync()
-  if (res.ok) {
+  if (res.cancelled) {
+    // Le joueur a repoussé le téléchargement : on garde le volume à l'écran et
+    // le bouton reste sur TÉLÉCHARGER, il décidera quand il voudra.
+    gameStatus.value = 'pending-download'
+  } else if (res.ok) {
     gameStatus.value = 'ready'
   } else {
     gameStatus.value = 'error'
@@ -281,7 +312,11 @@ function onOnboardingDone() {
 }
 
 async function play() {
-  if (gameStatus.value === 'error') {
+  if (gameStatus.value === 'confirm') {
+    acceptDownload()
+    return
+  }
+  if (gameStatus.value === 'error' || gameStatus.value === 'pending-download') {
     await runSync()
     return
   }
@@ -347,6 +382,14 @@ onMounted(async () => {
     }
   })
 
+  removeConfirmListener = window.krash.game.onConfirmDownload((p) => {
+    plan.value = p
+    // Pendant l'onboarding, c'est OnboardingView qui affiche la confirmation :
+    // changer gameStatus ici le démonterait en plein milieu.
+    if (gameStatus.value === 'onboarding') return
+    gameStatus.value = 'confirm'
+  })
+
   installPath.value = await window.krash.store.get('game.installPath') || ''
   const installVerified = await window.krash.store.get('game.installVerified')
 
@@ -385,6 +428,7 @@ async function checkForContentUpdate() {
 
 onUnmounted(() => {
   removeProgressListener?.()
+  removeConfirmListener?.()
   if (contentUpdateInterval) clearInterval(contentUpdateInterval)
   if (serverPollInterval) clearInterval(serverPollInterval)
 })
@@ -512,6 +556,9 @@ onUnmounted(() => {
   box-shadow: 0 0 6px var(--gold-glow);
   transition: width .2s ease;
 }
+
+.play-actions { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }
+.btn-later { font-size: .78rem; padding: .55rem 1rem; letter-spacing: 0; text-transform: none; }
 
 .btn-play {
   padding: .8rem 2.75rem;

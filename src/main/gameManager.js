@@ -8,7 +8,7 @@ import { exec as execCb, spawn } from 'child_process'
 import axios from 'axios'
 import config from './config.js'
 
-const { MANIFEST_URL, MANIFEST_FALLBACK_URL, REALMLIST, REALMLIST_LOCALE } = config
+const { MANIFEST_URL, MANIFEST_FALLBACK_URL, REALMLIST, REALMLIST_LOCALE, CONFIRM_THRESHOLD_BYTES } = config
 
 /**
  * Gère la vérification et le téléchargement des fichiers du client WoW.
@@ -228,69 +228,148 @@ async function safeCopyFile(src, dest) {
 // qui faisaient chuter la progression à 0% par soustraction des bytes du retry.
 const STALL_TIMEOUT_MS = 60000
 
-function downloadFileOnce(url, destPath, onChunk, onFinalize, expectedHash) {
+/**
+ * Emplacement du fichier temporaire d'un téléchargement. Le nom est dérivé du
+ * sha256 attendu (ou de l'URL), donc stable d'une tentative à l'autre et d'un
+ * lancement du launcher à l'autre : c'est ce qui permet la reprise. Un fichier
+ * dont le contenu change côté serveur obtient un nom différent, donc aucun
+ * risque de reprendre sur un .part périmé.
+ *
+ * Le tmp vit dans os.tmpdir() et non à côté de la destination : OneDrive (ou un
+ * autre client de sync cloud) verrouillait le .part pendant le téléchargement,
+ * ce qui provoquait un EPERM au moment de le déplacer.
+ */
+function tmpPathFor(url, expectedHash) {
+  const key = expectedHash || crypto.createHash('sha256').update(url).digest('hex')
+  return path.join(os.tmpdir(), `krash-${key.slice(0, 32)}.part`)
+}
+
+function sizeOf(p) {
+  try {
+    return fs.statSync(p).size
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Télécharge une fois, en reprenant le .part existant s'il y en a un.
+ *
+ * onBytes(total) reçoit le nombre d'octets présents sur le disque pour CE fichier
+ * (reprise comprise), pas un delta : la progression reste juste même quand une
+ * tentative échoue et repart, sans avoir à soustraire quoi que ce soit.
+ */
+function downloadFileOnce(url, destPath, onBytes, onFinalize, expectedHash, expectedSize) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
 
-    // Le fichier temporaire est écrit dans os.tmpdir() et NON pas à côté de la
-    // destination finale. Cela évite que OneDrive (ou un autre client de sync
-    // cloud) ne verrouille le .part pendant le téléchargement, ce qui causait
-    // un EPERM sur fs.rename quand installPath est dans un dossier OneDrive.
-    // Une fois le téléchargement terminé, on copie vers la destination puis on
-    // supprime le tmp — fs.copyFile fonctionne même inter-volumes, contrairement
-    // à fs.rename qui est atomique mais échoue en cross-device ou si le fichier
-    // source est verrouillé.
-    const tmpPath = path.join(os.tmpdir(), `krash-${crypto.randomBytes(8).toString('hex')}.part`)
-    const fileStream = fs.createWriteStream(tmpPath)
+    const tmpPath = tmpPathFor(url, expectedHash)
+    let startByte = sizeOf(tmpPath)
+
+    // Un .part plus gros que le fichier attendu ne peut venir que d'un reste
+    // incohérent : on repart de zéro plutôt que de tenter un Range invalide.
+    if (expectedSize && startByte >= expectedSize) {
+      try { fs.unlinkSync(tmpPath) } catch {}
+      startByte = 0
+    }
+
+    let received = startByte
+    let fileStream = null
     const client = url.startsWith('https') ? https : http
 
     let done = false
     let stallTimer = null
 
-    function cleanup(err) {
+    // failed() garde le .part sur le disque : c'est lui qui sera repris à la
+    // tentative suivante. Seules les erreurs d'intégrité le suppriment.
+    function failed(err) {
       if (done) return
       done = true
       if (stallTimer) clearTimeout(stallTimer)
-      fileStream.destroy()
-      fs.unlink(tmpPath, () => {}) // nettoyage du tmp dans os.tmpdir(), non bloquant
-      if (err) reject(err)
+      fileStream?.destroy()
+      reject(err)
+    }
+
+    function discardAndFail(err) {
+      if (done) return
+      done = true
+      if (stallTimer) clearTimeout(stallTimer)
+      fileStream?.destroy()
+      fs.unlink(tmpPath, () => {})
+      reject(err)
     }
 
     function resetStall() {
       if (stallTimer) clearTimeout(stallTimer)
       stallTimer = setTimeout(() => {
-        req.destroy(new Error('Timeout : aucune donnée reçue depuis 30s, connexion coupée'))
+        req.destroy(new Error(`Timeout : aucune donnée reçue depuis ${STALL_TIMEOUT_MS / 1000}s`))
       }, STALL_TIMEOUT_MS)
     }
 
-    const req = client.get(url, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume() // vide le corps de la réponse, sinon le socket reste ouvert
-        return cleanup(new Error(`HTTP ${res.statusCode} pour ${url}`))
+    const headers = startByte > 0 ? { Range: `bytes=${startByte}-` } : {}
+    const req = client.get(url, { headers }, (res) => {
+      // 206 : le serveur honore la reprise, on complète le .part existant.
+      // 200 avec une requête Range : il l'ignore et renvoie tout depuis le début,
+      // on repart donc de zéro en écrasant le .part.
+      const resuming = res.statusCode === 206
+      const restarting = res.statusCode === 200
+
+      if (!resuming && !restarting) {
+        res.resume() // vide le corps, sinon le socket reste ouvert
+        // 416 : le serveur juge la plage invalide (fichier raccourci côté serveur).
+        // On jette le .part pour que la tentative suivante reparte proprement.
+        if (res.statusCode === 416) {
+          return discardAndFail(new Error(`Plage invalide pour ${path.basename(destPath)}, reprise abandonnée`))
+        }
+        return failed(new Error(`HTTP ${res.statusCode} pour ${url}`))
       }
+
+      if (restarting && startByte > 0) {
+        console.log(`[sync] reprise refusée par le serveur : ${path.basename(destPath)}, redémarrage depuis 0`)
+        startByte = 0
+        received = 0
+      }
+
+      if (resuming) {
+        console.log(`[sync] reprise : ${path.basename(destPath)} à ${(startByte / 1048576).toFixed(0)} Mo`)
+      }
+
+      fileStream = fs.createWriteStream(tmpPath, { flags: startByte > 0 ? 'a' : 'w' })
 
       // Sans ce handler, une coupure socket en plein flux (ECONNRESET, serveur qui
       // ferme la connexion) émet un 'error' non géré sur la réponse → exception
       // non capturée dans le main process, donc crash du launcher au lieu d'un
       // simple retry sur le fichier en cours.
-      res.on('error', (err) => cleanup(err))
+      res.on('error', (err) => failed(err))
+
+      // Une erreur d'écriture disque (antivirus, disque plein, fichier verrouillé)
+      // laissait sinon la Promise en suspens indéfiniment → blocage sur
+      // "Finalisation..." sans jamais résoudre.
+      fileStream.on('error', (err) => failed(err))
 
       resetStall()
       res.on('data', (chunk) => {
-        onChunk?.(chunk.length)
+        received += chunk.length
+        onBytes?.(received)
         resetStall() // réinitialise le timer tant que des données arrivent
       })
       res.pipe(fileStream)
-
-      // ⚠️ Ce handler était manquant : sans lui, une erreur d'écriture disque
-      // (antivirus, disque plein, fichier verrouillé) laissait la Promise en
-      // suspens indéfiniment → blocage sur "Finalisation..." sans jamais résoudre.
-      fileStream.on('error', (err) => cleanup(err))
 
       fileStream.on('finish', () => {
         if (done) return
         done = true
         if (stallTimer) clearTimeout(stallTimer)
+
+        // Le stream se termine aussi quand la connexion est coupée proprement au
+        // milieu : sans ce contrôle, on copiait un fichier tronqué avant de s'en
+        // apercevoir au sha256, après plusieurs minutes de copie inutile.
+        const written = sizeOf(tmpPath)
+        if (expectedSize && written < expectedSize) {
+          return failed(new Error(
+            `Téléchargement incomplet : ${path.basename(destPath)} (${written}/${expectedSize} octets), repris à la prochaine tentative`
+          ))
+        }
+
         // close() avec callback : garantit que le handle source est libéré
         // avant qu'on commence à lire le fichier pour le copier.
         fileStream.close(() => {
@@ -300,17 +379,17 @@ function downloadFileOnce(url, destPath, onChunk, onFinalize, expectedHash) {
           console.log(`[sync] écriture : ${path.basename(destPath)}`)
           safeCopyFile(tmpPath, destPath)
             .then(async () => {
-              fs.unlink(tmpPath, () => {})
               // Vérification SHA256 post-écriture : détecte les corruptions réseau
               // (bit-flip, téléchargement tronqué) avant que le joueur tente de jouer.
-              // En cas de mismatch, on supprime le fichier corrompu et on throw →
-              // downloadFile() retentera automatiquement le DL (jusqu'à MAX_RETRIES).
+              // En cas de mismatch, on supprime le fichier ET le .part, puis on throw →
+              // downloadFile() retentera un téléchargement complet.
               if (expectedHash) {
                 try {
                   const writtenHash = await sha256File(destPath)
                   if (writtenHash !== expectedHash) {
                     console.warn(`[sync] SHA256 KO : ${path.basename(destPath)} — corrompu, sera retéléchargé`)
                     try { fs.unlinkSync(destPath) } catch {}
+                    fs.unlink(tmpPath, () => {})
                     reject(new Error(`Fichier corrompu : ${path.basename(destPath)} (sha256 mismatch)`))
                     return
                   }
@@ -320,18 +399,19 @@ function downloadFileOnce(url, destPath, onChunk, onFinalize, expectedHash) {
                   return
                 }
               }
+              fs.unlink(tmpPath, () => {})
               resolve()
             })
-            .catch((copyErr) => { fs.unlink(tmpPath, () => {}); reject(copyErr) })
+            .catch((copyErr) => reject(copyErr))
         })
       })
     })
 
-    req.on('error', (err) => cleanup(err))
+    req.on('error', (err) => failed(err))
   })
 }
 
-const MAX_RETRIES = 3
+const MAX_RETRIES = 5
 const RETRY_DELAY_MS = 1500
 
 function wait(ms) {
@@ -340,27 +420,25 @@ function wait(ms) {
 
 /**
  * Télécharge un fichier avec retry automatique (jusqu'à MAX_RETRIES tentatives).
- * Une coupure réseau ponctuelle ne fait donc plus échouer tout le sync : seul
- * le fichier en cours est retenté, après un court délai. Si onRetry est fourni,
- * il est appelé à chaque nouvelle tentative pour informer l'UI (ex: "Nouvelle
- * tentative 2/3 pour patch-3.MPQ"). Les bytes déjà comptés pour les tentatives
- * ratées sont retirés via onChunk(-bytesDejaComptes) pour ne pas fausser la
- * barre de progression globale.
+ * Chaque tentative reprend là où la précédente s'est arrêtée grâce au .part
+ * conservé : une coupure à 95% d'un MPQ de 4 Go ne refait plus les 95%. C'est
+ * aussi pour ça que MAX_RETRIES peut être plus généreux qu'avant — une tentative
+ * ratée ne coûte plus un téléchargement complet.
+ *
+ * onRetry informe l'UI à chaque nouvelle tentative (ex: "Nouvelle tentative 2/5
+ * pour patch-3.MPQ").
  */
-async function downloadFile(url, destPath, onChunk, onRetry, fileLabel, onFinalize, expectedHash) {
+async function downloadFile(url, destPath, onBytes, onRetry, fileLabel, onFinalize, expectedHash, expectedSize) {
   let lastErr
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    let bytesThisAttempt = 0
     try {
-      await downloadFileOnce(url, destPath, (len) => {
-        bytesThisAttempt += len
-        onChunk?.(len)
-      }, onFinalize, expectedHash)
+      await downloadFileOnce(url, destPath, onBytes, onFinalize, expectedHash, expectedSize)
       return
     } catch (err) {
       lastErr = err
-      // On retire de la progression les bytes comptés pour cette tentative ratée
-      if (bytesThisAttempt) onChunk?.(-bytesThisAttempt)
+      console.warn(`[sync] échec ${attempt}/${MAX_RETRIES} sur ${fileLabel} : ${err.message}`)
+      // La progression repart de ce qui est réellement sur le disque, pas de zéro.
+      onBytes?.(sizeOf(tmpPathFor(url, expectedHash)))
       if (attempt < MAX_RETRIES) {
         onRetry?.({ file: fileLabel, attempt: attempt + 1, maxAttempts: MAX_RETRIES, error: err.message })
         await wait(RETRY_DELAY_MS * attempt)
@@ -403,10 +481,13 @@ async function checkDiskSpace(installPath, requiredBytes) {
  * (bytes téléchargés / total) pour alimenter la barre de progression UI.
  */
 async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, onProgress) {
+  // Octets des fichiers déjà terminés. La progression affichée vaut toujours
+  // completedBytes + ce qui est sur le disque pour le fichier en cours, donc une
+  // tentative ratée puis reprise ne fait ni bondir ni chuter la barre.
+  let completedBytes = 0
   let downloadedBytes = 0
 
   // Estimation de vitesse par fenêtre glissante (5 dernières secondes).
-  // Les chunks négatifs (annulation de retry) ne sont pas comptabilisés dans la fenêtre.
   const SPEED_WINDOW_MS = 5000
   const speedSamples = [] // { time: ms, bytes: number }
   let speedBps = 0
@@ -430,9 +511,11 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
     const url = getUrlForFile(manifestBaseUrl, file.path)
     const dest = path.join(installPath, file.path)
 
-    const onChunk = (chunkLen) => {
-      downloadedBytes += chunkLen
-      recordChunk(chunkLen)
+    let fileBytes = 0
+    const onBytes = (bytesForThisFile) => {
+      recordChunk(bytesForThisFile - fileBytes)
+      fileBytes = bytesForThisFile
+      downloadedBytes = completedBytes + fileBytes
       const remaining = Math.max(0, totalBytes - downloadedBytes)
       const etaSeconds = speedBps > 0 ? Math.round(remaining / speedBps) : null
       onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path, etaSeconds })
@@ -452,15 +535,18 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
     }
 
     try {
-      await downloadFile(url, dest, onChunk, onRetry, file.path, onFinalize, file.sha256)
+      await downloadFile(url, dest, onBytes, onRetry, file.path, onFinalize, file.sha256, file.size)
     } catch (primaryErr) {
       // Serveur principal injoignable après tous les retries → tentative sur le fallback
       if (!MANIFEST_FALLBACK_URL) throw primaryErr
       const fallbackUrl = getUrlForFile(MANIFEST_FALLBACK_URL, file.path)
       console.warn(`[sync] fallback pour ${file.path} : ${primaryErr.message}`)
       onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path, fallback: true })
-      await downloadFile(fallbackUrl, dest, onChunk, onRetry, file.path, onFinalize, file.sha256)
+      await downloadFile(fallbackUrl, dest, onBytes, onRetry, file.path, onFinalize, file.sha256, file.size)
     }
+
+    completedBytes += file.size
+    downloadedBytes = completedBytes
 
     // On aligne la date de modification du fichier écrit sur celle du manifest.
     // Sans ça, le fichier fraîchement téléchargé porte la date de la copie, donc
@@ -590,8 +676,10 @@ function resumeCloudSync() {
 /**
  * Point d'entrée principal : vérifie + télécharge si besoin.
  * onProgress(payload) est appelé régulièrement pour mettre à jour l'UI.
+ * confirmDownload({ totalBytes, fileCount }) doit résoudre true/false ; s'il
+ * n'est pas fourni, le téléchargement démarre sans demander.
  */
-export async function syncGame(installPath, onProgress) {
+export async function syncGame(installPath, onProgress, confirmDownload) {
   onProgress?.({ phase: 'fetching-manifest' })
   const manifest = await fetchManifest()
 
@@ -599,6 +687,18 @@ export async function syncGame(installPath, onProgress) {
   const { toDownload, totalBytes } = await diffManifest(installPath, manifest, onProgress)
 
   if (toDownload.length) {
+    // Au-delà du seuil, on demande l'accord du joueur avant de lancer le
+    // téléchargement : partir sur 20 Go sans prévenir, alors qu'il voulait juste
+    // jouer, n'est pas acceptable. En dessous (petit patch), on ne l'embête pas.
+    if (confirmDownload && totalBytes >= CONFIRM_THRESHOLD_BYTES) {
+      const accepted = await confirmDownload({ totalBytes, fileCount: toDownload.length })
+      if (!accepted) {
+        console.log(`[sync] téléchargement refusé par le joueur (${toDownload.length} fichiers, ${totalBytes} octets)`)
+        onProgress?.({ phase: 'cancelled', totalBytes, fileCount: toDownload.length })
+        return { cancelled: true, updated: 0, version: manifest.version, totalBytes, fileCount: toDownload.length }
+      }
+    }
+
     const space = await checkDiskSpace(installPath, totalBytes)
     if (!space.ok) {
       const freeMB = (space.free / 1024 / 1024).toFixed(0)

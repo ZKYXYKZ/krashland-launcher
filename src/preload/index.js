@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('krash', {
       ipcRenderer.on('game:sync-progress', handler)
       return () => ipcRenderer.removeListener('game:sync-progress', handler)
     },
+    onConfirmDownload: (callback) => {
+      const handler = (_e, plan) => callback(plan)
+      ipcRenderer.on('game:confirm-download', handler)
+      return () => ipcRenderer.removeListener('game:confirm-download', handler)
+    },
+    replyConfirmDownload: (accepted) => ipcRenderer.send('game:confirm-download-reply', accepted),
     play: () => ipcRenderer.invoke('game:play'),
     findObsolete: () => ipcRenderer.invoke('game:findObsolete'),
     deleteObsolete: (files) => ipcRenderer.invoke('game:deleteObsolete', files),

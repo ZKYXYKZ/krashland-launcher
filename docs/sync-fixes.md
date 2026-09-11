@@ -144,3 +144,70 @@ des espaces. Un upload manuel sur la release GitHub casse donc l'auto-update (40
 electron-updater). Publier avec `npm run release:win` (GH_TOKEN requis), qui téléverse
 l'exe, le `.blockmap` et le `latest.yml` avec les bons noms, ou renommer l'exe en
 `Krashland-Launcher-Setup-1.0.3.exe` avant l'upload manuel.
+
+## Version 1.0.4 — journalisation, reprise de téléchargement, confirmation du volume
+
+### Journalisation dans un fichier (`src/main/logger.js`)
+
+Avant : aucun `console.log` du main process n'était écrit nulle part une fois l'app
+packagée, et le bouton « Voir les logs » d'Options ouvrait `app.getPath('logs')`, un
+dossier qui n'existait même pas. Aucune trace exploitable quand un joueur signalait un
+problème.
+
+- `electron-log` écrit désormais dans `<logs>/main.log`, rotation à 5 Mo.
+- `Object.assign(console, log.functions)` redirige tous les `console.*` existants sans
+  avoir à les réécrire.
+- `autoUpdater.logger = log` : le détail des mises à jour du launcher est tracé aussi.
+- `errorHandler.startCatching({ showDialog: false })` : une exception non capturée dans
+  le main process est écrite dans le log au lieu d'afficher une boîte Electron brute.
+- `game:openLogs` crée le dossier avant de l'ouvrir, donc le bouton fait toujours quelque chose.
+
+### Reprise de téléchargement (`src/main/gameManager.js`)
+
+Avant : un `patch.MPQ` de 4 Go coupé à 95 % repartait de zéro, trois fois, puis faisait
+échouer tout le sync. Sur une connexion instable, un joueur pouvait ne jamais arriver au bout.
+
+- Le fichier temporaire porte un nom dérivé du sha256 attendu, donc stable d'une tentative
+  à l'autre et d'un lancement du launcher à l'autre. Un fichier modifié côté serveur obtient
+  un nom différent : aucun risque de reprendre sur un `.part` périmé.
+- En-tête `Range: bytes=<taille du .part>-` et écriture en append quand le `.part` existe.
+  Réponse 206 → reprise ; 200 → le serveur ignore la reprise, on repart de zéro ;
+  416 → le `.part` est jeté.
+- Le `.part` n'est plus supprimé sur échec réseau (c'est lui qui sert de reprise). Il ne
+  l'est que sur erreur d'intégrité : sha256 incorrect ou plage refusée.
+- Contrôle de taille avant la copie : un stream terminé par une coupure propre ne passe
+  plus par une copie complète de plusieurs minutes avant d'être détecté au sha256.
+- `MAX_RETRIES` passe de 3 à 5, une tentative ratée ne coûtant plus un téléchargement complet.
+- La progression est désormais calculée comme `octets des fichiers terminés + octets réellement
+  sur le disque pour le fichier en cours`, au lieu d'additionner des deltas et de soustraire
+  ceux des tentatives ratées. La barre ne peut plus reculer.
+
+### Confirmation du volume avant téléchargement
+
+Avant : un clic et le joueur était embarqué dans 20 Go sans être prévenu.
+
+- `syncGame()` accepte un callback `confirmDownload({ totalBytes, fileCount })` appelé
+  au-delà de `CONFIRM_THRESHOLD_BYTES` (1 Go par défaut, réglable dans `config.js` ou via
+  `KRASH_CONFIRM_THRESHOLD`). En dessous du seuil, un petit patch s'installe sans rien demander.
+- Côté main, `askDownloadConfirmation()` interroge le renderer et attend sa réponse ; si la
+  fenêtre disparaît entre-temps, la promesse se résout à `false` au lieu de laisser le sync
+  suspendu indéfiniment.
+- Onboarding : écran « X Go à télécharger » avec Télécharger / Annuler. Annuler ramène à
+  l'écran de départ.
+- Vue principale : la barre affiche le volume, le bouton devient TÉLÉCHARGER et un bouton
+  « Plus tard » apparaît. En cas de refus, l'état reste `pending-download`, le joueur relance
+  quand il veut.
+- Un refus ne pose pas `game.installVerified` : rien n'a été installé, l'état précédent est conservé.
+
+### Vérifications
+
+Test bout en bout sur serveur HTTP local avec coupures réseau provoquées en plein transfert
+(socket détruit à 2 Mo puis 4 Mo sur un fichier de 6 Mo) :
+
+- confirmation demandée, refus honoré, rien écrit sur le disque ;
+- après acceptation, deux reprises via `Range: bytes=2097002-` puis `bytes=4193945-` ;
+- progression jamais en arrière, progression finale égale au total ;
+- fichier final intègre (sha256), mtime aligné sur le manifest, `.part` nettoyé ;
+- relance immédiate : plus rien à télécharger, aucune nouvelle demande de confirmation.
+
+ESLint : 0 erreur. `electron-vite build` : OK.

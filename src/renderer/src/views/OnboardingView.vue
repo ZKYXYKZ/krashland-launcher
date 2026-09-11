@@ -26,6 +26,19 @@
         <div class="ob-spinner"><span class="spinner" /></div>
       </template>
 
+      <template v-else-if="step === 'confirm'">
+        <span class="ob-icon">📦</span>
+        <h2 class="ob-title glow-gold">{{ formatSize(plan.totalBytes) }} à télécharger</h2>
+        <p class="ob-sub">
+          {{ plan.fileCount }} fichier{{ plan.fileCount > 1 ? 's' : '' }} à récupérer depuis le serveur.
+          Tu peux fermer le launcher en cours de route, le téléchargement reprendra où il s'est arrêté.
+        </p>
+        <div class="ob-actions">
+          <button class="btn btn-gold" @click="acceptDownload">Télécharger</button>
+          <button class="btn btn-outline" @click="declineDownload">Annuler</button>
+        </div>
+      </template>
+
       <template v-else-if="step === 'downloading'">
         <h2 class="ob-title">Téléchargement en cours...</h2>
         <p class="ob-sub">{{ downloadedMb }} / {{ totalMb }} Mo ({{ progressPercent }}%)<template v-if="etaLabel"> — {{ etaLabel }}</template></p>
@@ -78,6 +91,22 @@ const finalizingFile = ref('')
 const finalizingDone = ref(0)
 const finalizingTotal = ref(0)
 const etaSeconds = ref(null)
+const plan = ref({ totalBytes: 0, fileCount: 0 })
+
+function formatSize(bytes) {
+  const go = bytes / 1073741824
+  if (go >= 1) return `${go.toFixed(1).replace('.', ',')} Go`
+  return `${Math.round(bytes / 1048576)} Mo`
+}
+
+function acceptDownload() {
+  step.value = 'downloading'
+  window.krash.game.replyConfirmDownload(true)
+}
+
+function declineDownload() {
+  window.krash.game.replyConfirmDownload(false)
+}
 
 function formatEta(sec) {
   if (sec === null || sec === undefined || sec < 10 || !isFinite(sec)) return null
@@ -87,6 +116,7 @@ function formatEta(sec) {
 const etaLabel = computed(() => formatEta(etaSeconds.value))
 
 let removeProgressListener = null
+let removeConfirmListener = null
 
 const downloadedMb = computed(() => (downloadedBytes.value / 1024 / 1024).toFixed(0))
 const totalMb = computed(() => (totalBytes.value / 1024 / 1024).toFixed(0))
@@ -117,7 +147,9 @@ async function runCheck() {
   step.value = 'checking'
   errorMsg.value = ''
   const res = await window.krash.game.sync()
-  if (res.ok) {
+  if (res.cancelled) {
+    step.value = 'ask'
+  } else if (res.ok) {
     emit('done')
   } else {
     step.value = 'error'
@@ -151,11 +183,17 @@ onMounted(() => {
     }
   })
 
+  removeConfirmListener = window.krash.game.onConfirmDownload((p) => {
+    plan.value = p
+    step.value = 'confirm'
+  })
+
   if (props.resumePath) runCheck()
 })
 
 onUnmounted(() => {
   removeProgressListener?.()
+  removeConfirmListener?.()
 })
 </script>
 

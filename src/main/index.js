@@ -1,6 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import fs from 'fs'
 import Store from 'electron-store'
+import { setupLogging } from './logger.js'
 import { syncGame, fetchManifestVersion, findObsoleteFiles, deleteObsoleteFiles } from './gameManager.js'
 import { launchGame } from './gameLauncher.js'
 import { setupAutoUpdate } from './autoUpdate.js'
@@ -100,6 +102,33 @@ ipcMain.handle('store:delete', (_e, key) => {
 
 let syncInProgress = false
 
+/**
+ * Demande au renderer si le joueur accepte le téléchargement, et attend sa
+ * réponse. Si la fenêtre disparaît entre-temps, on résout false plutôt que de
+ * laisser le sync suspendu indéfiniment (syncInProgress serait bloqué à true
+ * pour toute la session).
+ */
+function askDownloadConfirmation(sender, payload) {
+  return new Promise((resolve) => {
+    if (!sender || sender.isDestroyed()) return resolve(false)
+
+    let settled = false
+    const finish = (accepted) => {
+      if (settled) return
+      settled = true
+      ipcMain.removeListener('game:confirm-download-reply', onReply)
+      sender.removeListener('destroyed', onDestroyed)
+      resolve(accepted)
+    }
+    const onReply = (_e, accepted) => finish(!!accepted)
+    const onDestroyed = () => finish(false)
+
+    ipcMain.on('game:confirm-download-reply', onReply)
+    sender.once('destroyed', onDestroyed)
+    safeSend(sender, 'game:confirm-download', payload)
+  })
+}
+
 ipcMain.handle('game:chooseFolder', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
     title: "Choisir le dossier d'installation du jeu",
@@ -123,9 +152,15 @@ ipcMain.handle('game:sync', async (event) => {
 
   syncInProgress = true
   try {
-    const result = await syncGame(installPath, (progress) => {
-      safeSend(event.sender, 'game:sync-progress', progress)
-    })
+    const result = await syncGame(
+      installPath,
+      (progress) => safeSend(event.sender, 'game:sync-progress', progress),
+      (plan) => askDownloadConfirmation(event.sender, plan)
+    )
+    // Téléchargement refusé : rien n'a été installé, l'état de vérification
+    // précédent reste tel quel.
+    if (result.cancelled) return { ok: true, ...result }
+
     store.set('game.installVerified', true)
     if (result.version) store.set('game.manifestVersion', result.version)
     if (result.manifestFiles) {
@@ -208,7 +243,9 @@ ipcMain.handle('game:deleteObsolete', (_e, files) => {
 // Utile pour récupérer des infos de debug chez un joueur sans avoir à lui
 // expliquer comment naviguer dans %AppData%.
 ipcMain.handle('game:openLogs', () => {
-  shell.openPath(app.getPath('logs'))
+  const logDir = app.getPath('logs')
+  fs.mkdirSync(logDir, { recursive: true })
+  shell.openPath(logDir)
 })
 
 // ── Auto-update du launcher (GitHub Releases privé) ──
@@ -224,6 +261,7 @@ ipcMain.handle('update:install', () => {
 })
 
 app.whenReady().then(() => {
+  setupLogging()
   createWindow()
   updater = setupAutoUpdate(
     (channel, payload) => safeSend(mainWindow?.webContents, channel, payload),

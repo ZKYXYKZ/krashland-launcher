@@ -19,6 +19,10 @@ export default {
   // au lieu de la vraie cause côté krashland.fr.
   MANIFEST_FALLBACK_URL: process.env.KRASH_MANIFEST_FALLBACK_URL || null,
 
+  // Volume (en octets) à partir duquel le launcher demande confirmation au joueur
+  // avant de lancer un téléchargement. En dessous, il télécharge sans l'interrompre.
+  CONFIRM_THRESHOLD_BYTES: Number(process.env.KRASH_CONFIRM_THRESHOLD) || 1024 * 1024 * 1024,
+
   // Liens externes
   WEBSITE_URL: process.env.KRASH_WEBSITE_URL || 'https://krashland.fr',
   DISCORD_URL: 'https://discord.gg/MfWpPBDCcm',

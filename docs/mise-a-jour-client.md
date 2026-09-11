@@ -71,7 +71,12 @@ la mise à jour et ne télécharger que les fichiers modifiés.
 - Il compare taille + date de modification en premier, et ne recalcule le sha256 que si
   ça diffère. Une vérification sur un client déjà à jour est donc quasi instantanée.
 - Un fichier téléchargé dont le sha256 ne correspond pas est supprimé et retéléchargé,
-  jusqu'à 3 fois.
+  jusqu'à 5 fois.
+- Un téléchargement coupé reprend là où il s'est arrêté, même si le joueur ferme le
+  launcher entre-temps. Ton serveur web doit donc accepter les requêtes `Range` (c'est
+  le cas par défaut sur Apache et nginx pour des fichiers statiques).
+- Au-delà d'1 Go à télécharger, le launcher demande son accord au joueur avant de démarrer,
+  en lui annonçant le volume. En dessous, un petit patch s'installe sans rien demander.
 - Les fichiers retirés du manifest ne sont jamais supprimés automatiquement chez le
   joueur : c'est le bouton « Rechercher des fichiers obsolètes » dans Options qui les
   propose, et le joueur confirme.
