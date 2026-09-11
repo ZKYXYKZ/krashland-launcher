@@ -1,5 +1,5 @@
 <template>
-  <OnboardingView v-if="gameStatus === 'onboarding'" @done="onOnboardingDone" />
+  <OnboardingView v-if="gameStatus === 'onboarding'" :resume-path="installPath" @done="onOnboardingDone" />
 
   <div v-else class="main-view">
 
@@ -204,9 +204,10 @@ const statusLabel = computed(() => {
     error: syncError.value || 'Erreur de synchronisation'
   }[gameStatus.value] || ''
 })
-const playDisabled = computed(() => gameStatus.value !== 'ready')
+const playDisabled = computed(() => !['ready', 'error'].includes(gameStatus.value))
 const playLabel = computed(() => {
   if (gameStatus.value === 'launching') return 'Lancement...'
+  if (gameStatus.value === 'error') return 'RÉESSAYER'
   return gameStatus.value === 'ready' ? 'JOUER' : '...'
 })
 
@@ -280,6 +281,10 @@ function onOnboardingDone() {
 }
 
 async function play() {
+  if (gameStatus.value === 'error') {
+    await runSync()
+    return
+  }
   syncError.value = ''
   gameStatus.value = 'launching'
 

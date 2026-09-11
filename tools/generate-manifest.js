@@ -40,8 +40,14 @@ const path = require('path')
 const crypto = require('crypto')
 
 const EXCLUDED_DIRS = new Set(['cache', 'errors', 'logs', 'wtf', 'screenshots', '.git'])
-const EXCLUDED_FILES = new Set(['realmlist.wtf', 'config.wtf'])
-const EXCLUDED_EXT = new Set(['.log'])
+const EXCLUDED_FILES = new Set([
+  'realmlist.wtf',
+  'config.wtf',
+  'manifest.json',
+  'krashlauncher.exe',
+  'krashland-launcher.exe'
+])
+const EXCLUDED_EXT = new Set(['.log', '.part', '.tmp'])
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -60,6 +66,8 @@ function parseArgs() {
     else if (a === '--full') full = true
     else if (!a.startsWith('--')) version = a
   }
+  EXCLUDED_FILES.add(path.basename(out).toLowerCase())
+  if (prev) EXCLUDED_FILES.add(path.basename(prev).toLowerCase())
   return { clientDir, version, out, full, prev: prev || out }
 }
 
@@ -79,7 +87,6 @@ function collectFiles(dir, baseDir, acc = []) {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
   for (const entry of entries) {
     const full = path.join(dir, entry.name)
-    const rel = path.relative(baseDir, full).split(path.sep).join('/')
 
     if (entry.isDirectory()) {
       if (EXCLUDED_DIRS.has(entry.name.toLowerCase())) continue

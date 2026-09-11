@@ -1,404 +1,422 @@
 {
-  "version": "1.0.10",
-  "generatedAt": "2026-07-16T03:36:40.850Z",
-  "fileCount": 66,
-  "totalSize": 20870628070,
+  "version": "1.0.15",
+  "generatedAt": "2026-09-11T16:13:36.960Z",
+  "fileCount": 69,
+  "totalSize": 20992206965,
   "files": [
     {
       "path": "Battle.net.dll",
       "size": 15588224,
       "sha256": "88116951b04723cbb1073a1a0ff72dfdc40367f6649dffd08c602caa3ef1141f",
-      "mtime": 1777746162
+      "mtime": 1789142167
     },
     {
       "path": "d3d9.dll",
-      "size": 20992,
-      "sha256": "fbc93f9629d51412addc268fb60c93eece18e364cf95de0dd6456fba18958672",
-      "mtime": 1784057275
+      "size": 163328,
+      "sha256": "3645d7bb0c3d8ec1cabc9a1242f6635bca44e31f4a4f13e39676652bc7bc62ca",
+      "mtime": 1789142167
     },
     {
       "path": "Data/common-2.MPQ",
       "size": 2438282503,
       "sha256": "92665ea3fae770de59c7fce454559b67db62a15be274c36d74600a9997b3ab62",
-      "mtime": 1777746211
+      "mtime": 1789142818
     },
     {
       "path": "Data/common.MPQ",
       "size": 2227523921,
       "sha256": "4a5669753e69b16f85f844641fa02a8a2d1e6fa7edd8840ab619d3954a977f9c",
-      "mtime": 1777746265
+      "mtime": 1789142306
     },
     {
       "path": "Data/expansion.MPQ",
       "size": 1921597620,
       "sha256": "33f3444ab42f0c65c026f8ed72b55112d2dcedbe483c2cacccedb763e7179d85",
-      "mtime": 1777746298
+      "mtime": 1789142812
     },
     {
       "path": "Data/frFR/backup-frFR.MPQ",
       "size": 167928302,
       "sha256": "046dc545648a0be60c497a4739b763608d4a9663815adfee02619686940fa6cb",
-      "mtime": 1777746301
+      "mtime": 1789142884
     },
     {
       "path": "Data/frFR/base-frFR.MPQ",
       "size": 31155404,
       "sha256": "df6b31ff60e6701684d393ada405d5a634a0786a47c655e2b8bf25ee5adcb326",
-      "mtime": 1777746302
+      "mtime": 1789142814
     },
     {
       "path": "Data/frFR/Custom/patch-frFR-w.mpq",
       "size": 1025484,
       "sha256": "90c2afaaaecabc6657fe59db37d28b6305f12a957439572d7a47eceacf9f6dd6",
-      "mtime": 1777746298
+      "mtime": 1789142885
     },
     {
       "path": "Data/frFR/expansion-locale-frFR.MPQ",
       "size": 16938870,
       "sha256": "1f56e1c9f91a09ed4eb424120c4ac917e2a7d48a2faabf4f2f7c29c8aea5be39",
-      "mtime": 1777746302
+      "mtime": 1789142853
     },
     {
       "path": "Data/frFR/expansion-speech-frFR.MPQ",
       "size": 265532905,
       "sha256": "aec0b42229ba83e592aa1c8ba611e20fe26a2cb117208321c60aabb7d7f9cf98",
-      "mtime": 1777746307
+      "mtime": 1789142848
     },
     {
       "path": "Data/frFR/lichking-locale-frFR.MPQ",
       "size": 12642308,
       "sha256": "7c71a0b617b942f5f1dd21226eda160c01e92990c3f2ae8bb137a77f4a2541f4",
-      "mtime": 1777746307
+      "mtime": 1789142885
     },
     {
       "path": "Data/frFR/lichking-speech-frFR.MPQ",
       "size": 20557745,
       "sha256": "c8b8c33d408da5b17de840a76924d63d16f9cbe056094d164e28689de7c2c772",
-      "mtime": 1777746308
+      "mtime": 1789142851
     },
     {
       "path": "Data/frFR/locale-frFR.MPQ",
       "size": 200163220,
       "sha256": "015aab955e8cdc0bd73232e4ee48136992b23ade4ad8e0966c6b5ad2649ac22b",
-      "mtime": 1777746312
+      "mtime": 1789142831
     },
     {
       "path": "Data/frFR/patch-frFR-2.MPQ",
       "size": 226194452,
       "sha256": "a6bdb2f6db33c6514f02224531143d7fae71916ee346eea558f1d81ec7b37776",
-      "mtime": 1777746315
+      "mtime": 1789142871
     },
     {
       "path": "Data/frFR/patch-frFR-3.MPQ",
       "size": 106769367,
       "sha256": "8060c01761e1fa577b0ec4e18949edcc61e9df8c2473f147c6aa80c61b568852",
-      "mtime": 1777746317
+      "mtime": 1789142822
+    },
+    {
+      "path": "Data/frFR/patch-frFR-4.mpq",
+      "size": 370207,
+      "sha256": "7096002fcd859fc084a2703c35f74b4eb70ff7ece6b94c014498c571c03ec766",
+      "mtime": 1789142884
+    },
+    {
+      "path": "Data/frFR/patch-frFR-5.mpq",
+      "size": 71844,
+      "sha256": "e30eff62e9bcf95fb3c317a894b62c8a4f7822e877b993ab7b5a963c988f1c7b",
+      "mtime": 1789142884
     },
     {
       "path": "Data/frFR/patch-frFR.MPQ",
       "size": 552506800,
       "sha256": "91fd2b9877b1cf18b211dc38a72c91307656052a8da85e756afc8925c4ffdcd8",
-      "mtime": 1777746326
+      "mtime": 1789142856
     },
     {
       "path": "Data/frFR/speech-frFR.MPQ",
       "size": 441806471,
       "sha256": "b5e5c410fb91b6317cccbabb9f0f3f4899a9531777b0dc0a8c95206d1a1a5bc8",
-      "mtime": 1777746334
+      "mtime": 1789142887
     },
     {
       "path": "Data/lichking.MPQ",
       "size": 2581185567,
       "sha256": "8a581a386ecb5c5a6bae14e13565c3b4500090616ba14bff4eb8461418a80142",
-      "mtime": 1777746458
+      "mtime": 1789142671
     },
     {
       "path": "Data/patch-2.MPQ",
       "size": 1403129115,
       "sha256": "f64bdb5792eff146efd5cef40d45b2c28a23ef00ac2b1cb38a226e00dd6811ea",
-      "mtime": 1777746488
+      "mtime": 1789142694
     },
     {
       "path": "Data/patch-3.MPQ",
       "size": 605089137,
       "sha256": "56dbbfc8f9ce7182ca88538d75284e738020138a7ca4217d72d8168865510dd3",
-      "mtime": 1777746499
+      "mtime": 1789142183
     },
     {
       "path": "Data/Patch-A.MPQ",
       "size": 2066628805,
       "sha256": "0913f90547f2c2bfe8d5538d7b74a55ab402ace98fecf388d24f4dc687255214",
-      "mtime": 1547070832
+      "mtime": 1789142465
     },
     {
       "path": "Data/patch-G.mpq",
       "size": 509537037,
       "sha256": "cff8e3d085c3165d87682b8e6e9e06d5576448e214a5b817ae6397e4f763ccfb",
-      "mtime": 1784172691
+      "mtime": 1789142264
     },
     {
       "path": "Data/patch-L.MPQ",
       "size": 73306856,
       "sha256": "b56bef88cbf007e7af53ae6626377854aaf8a82dd8976a6d100ba104154d9eca",
-      "mtime": 1777746558
+      "mtime": 1789142675
     },
     {
       "path": "Data/Patch-W.mpq",
       "size": 92790696,
       "sha256": "cac412b69247d13e62a0949ca08309ff1f50ce2ee1fb8f95a3fe57bbfa783c3a",
-      "mtime": 1784137776
+      "mtime": 1789142206
     },
     {
       "path": "Data/Patch-XR.mpq",
       "size": 320832922,
       "sha256": "93ee061acf245e8fd195895f51af5279d7cc4e8cebb197fe33525305d4860931",
-      "mtime": 1784137959
+      "mtime": 1789142194
     },
     {
       "path": "Data/Patch-XS.mpq",
       "size": 309103977,
       "sha256": "38695aee401392fb0b3422668ad2d236a2d016eab6ebc28027a12ffc09c5ecff",
-      "mtime": 1784137889
+      "mtime": 1789142228
     },
     {
       "path": "Data/Patch-XT.mpq",
       "size": 69692489,
       "sha256": "2ce1b2592672175cf1c523199d472de1259b0530ef68a3380c3dc7f0039114e3",
-      "mtime": 1784137856
+      "mtime": 1789142270
+    },
+    {
+      "path": "Data/patch-Y.mpq",
+      "size": 120026571,
+      "sha256": "2f73143c530423dcfb185a45d3370f662d2707dc51e67cea8aadfead6b4a4453",
+      "mtime": 1789142588
     },
     {
       "path": "Data/Patch-YW.mpq",
       "size": 140393205,
       "sha256": "02b9c7205a33bbe0bf9a62f5acb4cb7cb9efa9abfb150444f189ba2b4c3a5a03",
-      "mtime": 1784139333
+      "mtime": 1789142703
     },
     {
       "path": "Data/Patch-Z.mpq",
-      "size": 33979741,
-      "sha256": "4e171aee8b88d7ab3e2a1579c541e1918d72364c2380d595884f30f7dcfea70b",
-      "mtime": 1784138105
+      "size": 34228830,
+      "sha256": "c252d9de9f1a5d39544698acb6968ae49018abbadf2e13de3c9aeae4eb728e33",
+      "mtime": 1789142467
     },
     {
       "path": "Data/patch.MPQ",
       "size": 4005207489,
       "sha256": "76cfea5884b2881f29e020635d7181da9f1340ff9d0f9f2a006350cbeef2073f",
-      "mtime": 1777746655
+      "mtime": 1789142581
     },
     {
       "path": "dbghelp.dll",
       "size": 1039728,
       "sha256": "3f9ad6986eb1f3a09eb0b5cad888ba656f9148b3339399076f2541b3bc59213c",
-      "mtime": 1777746658
+      "mtime": 1789142167
     },
     {
       "path": "DivxDecoder.dll",
       "size": 413696,
       "sha256": "ed34d37b575c91a56704218eb9f6abbefda8b7de0e2ed44c96191abd0f9915a5",
-      "mtime": 1777746655
+      "mtime": 1789142167
     },
     {
       "path": "ijl15.dll",
       "size": 372736,
       "sha256": "334aa12f7dee453d1c6cb1b661a3bb3494d3e4cc9c2ff3f9002064c78404e43a",
-      "mtime": 1777746658
+      "mtime": 1789142167
     },
     {
       "path": "Interface/AddOns/Blizzard_AchievementUI/Blizzard_AchievementUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746655
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_ArenaUI/Blizzard_ArenaUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_AuctionUI/Blizzard_AuctionUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142885
     },
     {
       "path": "Interface/AddOns/Blizzard_BarbershopUI/Blizzard_BarbershopUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142885
     },
     {
       "path": "Interface/AddOns/Blizzard_BattlefieldMinimap/Blizzard_BattlefieldMinimap.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142885
     },
     {
       "path": "Interface/AddOns/Blizzard_BindingUI/Blizzard_BindingUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_Calendar/Blizzard_Calendar.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_CombatLog/Blizzard_CombatLog.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_CombatText/Blizzard_CombatText.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142887
     },
     {
       "path": "Interface/AddOns/Blizzard_DebugTools/Blizzard_DebugTools.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_GlyphUI/Blizzard_GlyphUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_GMChatUI/Blizzard_GMChatUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_GMSurveyUI/Blizzard_GMSurveyUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_GuildBankUI/Blizzard_GuildBankUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142887
     },
     {
       "path": "Interface/AddOns/Blizzard_InspectUI/Blizzard_InspectUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_ItemSocketingUI/Blizzard_ItemSocketingUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142887
     },
     {
       "path": "Interface/AddOns/Blizzard_MacroUI/Blizzard_MacroUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_RaidUI/Blizzard_RaidUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142885
     },
     {
       "path": "Interface/AddOns/Blizzard_TalentUI/Blizzard_TalentUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746656
+      "mtime": 1789142887
     },
     {
       "path": "Interface/AddOns/Blizzard_TimeManager/Blizzard_TimeManager.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746657
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_TokenUI/Blizzard_TokenUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746657
+      "mtime": 1789142885
     },
     {
       "path": "Interface/AddOns/Blizzard_TradeSkillUI/Blizzard_TradeSkillUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746657
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/Blizzard_TrainerUI/Blizzard_TrainerUI.pub",
       "size": 257,
       "sha256": "5a2a75be06da4d9e48cefadcbb019c72d09a5a79657d7f64904dfe6f0fe63774",
-      "mtime": 1777746657
+      "mtime": 1789142887
     },
     {
       "path": "Interface/AddOns/TormentTracker/TormentTracker.lua",
       "size": 46365,
       "sha256": "697e1b57cc85feb47df871f17981a42c63b579e1f25e8318b5a2a35755cd0ba7",
-      "mtime": 1777746657
+      "mtime": 1789142886
     },
     {
       "path": "Interface/AddOns/TormentTracker/TormentTracker.toc",
       "size": 214,
       "sha256": "86bf92ed0b65216caf3b0f06f7a1fcb536622f62b30a9c4a6b74c884c01c246b",
-      "mtime": 1777746657
+      "mtime": 1789142886
     },
     {
       "path": "msvcr80.dll",
       "size": 632656,
       "sha256": "9382aaed2db19cd75a70e38964f06c63f19f63c9dfb5a33b0c2d445bb41b6e46",
-      "mtime": 1777746658
+      "mtime": 1789142167
     },
     {
       "path": "Repair.exe",
       "size": 975512,
       "sha256": "cd95fc2ddc3d8f7b9c9d9c9d3fd0adb62cd16e56e65f47f331f6aa335b10b04b",
-      "mtime": 1777746657
+      "mtime": 1789142168
     },
     {
       "path": "Scan.dll",
       "size": 49924,
       "sha256": "4fe56f1bf1bfa4171af7c53a731576bfc7818d36c6ea73658739f2f286d12da3",
-      "mtime": 1777746657
+      "mtime": 1789142168
     },
     {
       "path": "unicows.dll",
       "size": 245408,
       "sha256": "22f23cc65698741184ec34f46e6f69717644e0b5aabf5d5bd015101f2d72e56e",
-      "mtime": 1777746658
+      "mtime": 1789142168
     },
     {
       "path": "Utils/WarcraftXLHost.exe",
-      "size": 783872,
-      "sha256": "fb0d1499614743f4e0e4b221496cb3e4864ac1537204f37030dc07a793c6463c",
-      "mtime": 1784057385
+      "size": 1164800,
+      "sha256": "425ecff721f21966d6a4e7e33e9a51d279833f916d78f85be2ceb27db4291b32",
+      "mtime": 1789142887
     },
     {
       "path": "WarcraftXL.dll",
-      "size": 894976,
-      "sha256": "c9c8644dd424b7134028841af801d849d01fb4f1e28aa8eee84b0dc3b0d8bfce",
-      "mtime": 1784057318
+      "size": 1232896,
+      "sha256": "0a87c9835508e4642c87920bfba9aa466ee63efb21f70c2582d9046b2e2139b4",
+      "mtime": 1789142168
     },
     {
       "path": "Wow.exe",
       "size": 7705088,
       "sha256": "c0efd140963e99773e667ffd9ca7e37f76ae7ce2f6729c9145d9c373e2ca0be6",
-      "mtime": 1784057385
+      "mtime": 1789142168
     },
     {
       "path": "WowError.exe",
       "size": 350360,
       "sha256": "964eb9ed647c4614f3a3ecf977955750223ecbc8ff0a3bb4078e4dff779244f8",
-      "mtime": 1777746657
+      "mtime": 1789142168
     }
   ]
 }

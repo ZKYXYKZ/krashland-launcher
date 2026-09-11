@@ -46,8 +46,10 @@
       <template v-else-if="step === 'error'">
         <h2 class="ob-title">Erreur</h2>
         <p class="ob-sub error">{{ errorMsg }}</p>
+        <p class="ob-sub">Les fichiers déjà téléchargés sont conservés : une nouvelle tentative reprend là où ça s'est arrêté.</p>
         <div class="ob-actions">
-          <button class="btn btn-outline" @click="step = 'ask'">Réessayer</button>
+          <button class="btn btn-gold" @click="runCheck">Réessayer</button>
+          <button class="btn btn-outline" @click="chooseExisting">Changer de dossier</button>
         </div>
       </template>
 
@@ -59,6 +61,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const emit = defineEmits(['done'])
+// Dossier déjà choisi lors d'une session précédente mais jamais vérifié avec
+// succès (sync interrompu ou en erreur). Dans ce cas on ne repose pas la
+// question "le jeu est-il déjà installé ?" : on reprend directement la synchro,
+// qui repart des fichiers déjà présents sur le disque.
+const props = defineProps({ resumePath: { type: String, default: '' } })
 
 const step = ref('ask')
 const errorMsg = ref('')
@@ -143,6 +150,8 @@ onMounted(() => {
       etaSeconds.value = null
     }
   })
+
+  if (props.resumePath) runCheck()
 })
 
 onUnmounted(() => {

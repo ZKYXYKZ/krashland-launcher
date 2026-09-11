@@ -13,7 +13,11 @@ export default {
   // ou pour un fichier individuel (après épuisement des retries sur le primaire).
   // Doit exposer la même arborescence que MANIFEST_URL (manifest.json + Data/, etc.).
   // null = pas de fallback configuré.
-  MANIFEST_FALLBACK_URL: process.env.KRASH_MANIFEST_FALLBACK_URL || 'http://51.75.19.40/manifest.json',
+  // 2026-09 : l'ancien serveur de secours (51.75.19.40) a été coupé. Le laisser
+  // configuré ne servait qu'à ajouter 3 retries vers une IP morte après chaque
+  // échec du primaire, et à remonter dans l'UI l'erreur du fallback (ECONNREFUSED)
+  // au lieu de la vraie cause côté krashland.fr.
+  MANIFEST_FALLBACK_URL: process.env.KRASH_MANIFEST_FALLBACK_URL || null,
 
   // Liens externes
   WEBSITE_URL: process.env.KRASH_WEBSITE_URL || 'https://krashland.fr',

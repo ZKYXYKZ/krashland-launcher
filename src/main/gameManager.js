@@ -26,21 +26,44 @@ function sha256File(filePath) {
   })
 }
 
+// Fichiers qui ne doivent JAMAIS être synchronisés depuis le manifest, même si
+// le générateur les a laissés passer :
+//  - manifest.json : auto-référence, son hash est forcément périmé au moment où
+//    le manifest est écrit → mismatch sha256 systématique → sync en échec.
+//  - l'exe du launcher : verrouillé par Windows s'il tourne depuis le dossier
+//    d'install → EPERM à la copie.
+const NEVER_SYNCED = new Set(['manifest.json', 'krashlauncher.exe', 'krashland-launcher.exe'])
+
+function isNeverSynced(relPath) {
+  return NEVER_SYNCED.has(relPath.toLowerCase())
+}
+
 function getUrlForFile(manifestBaseUrl, relPath) {
   // Le manifest et les fichiers du client sont servis depuis le même dossier CDN
   const base = manifestBaseUrl.slice(0, manifestBaseUrl.lastIndexOf('/') + 1)
   return base + relPath.split('/').map(encodeURIComponent).join('/')
 }
 
+function sanitizeManifest(manifest) {
+  if (!manifest || !Array.isArray(manifest.files)) return manifest
+  const files = manifest.files.filter((f) => {
+    if (!isNeverSynced(f.path)) return true
+    console.warn(`[sync] entrée ignorée (non synchronisable) : ${f.path}`)
+    return false
+  })
+  if (files.length === manifest.files.length) return manifest
+  return { ...manifest, files, fileCount: files.length }
+}
+
 export async function fetchManifest() {
   try {
     const { data } = await axios.get(MANIFEST_URL, { timeout: 15000 })
-    return data
+    return sanitizeManifest(data)
   } catch (err) {
     if (!MANIFEST_FALLBACK_URL) throw err
     console.warn(`[sync] manifest primaire KO (${err.message}) — tentative sur le serveur de secours`)
     const { data } = await axios.get(MANIFEST_FALLBACK_URL, { timeout: 15000 })
-    return data
+    return sanitizeManifest(data)
   }
 }
 
@@ -242,8 +265,15 @@ function downloadFileOnce(url, destPath, onChunk, onFinalize, expectedHash) {
 
     const req = client.get(url, (res) => {
       if (res.statusCode !== 200) {
+        res.resume() // vide le corps de la réponse, sinon le socket reste ouvert
         return cleanup(new Error(`HTTP ${res.statusCode} pour ${url}`))
       }
+
+      // Sans ce handler, une coupure socket en plein flux (ECONNRESET, serveur qui
+      // ferme la connexion) émet un 'error' non géré sur la réponse → exception
+      // non capturée dans le main process, donc crash du launcher au lieu d'un
+      // simple retry sur le fichier en cours.
+      res.on('error', (err) => cleanup(err))
 
       resetStall()
       res.on('data', (chunk) => {
@@ -431,6 +461,15 @@ async function downloadFiles(installPath, files, manifestBaseUrl, totalBytes, on
       onProgress?.({ phase: 'downloading', downloadedBytes, totalBytes, currentFile: file.path, fallback: true })
       await downloadFile(fallbackUrl, dest, onChunk, onRetry, file.path, onFinalize, file.sha256)
     }
+
+    // On aligne la date de modification du fichier écrit sur celle du manifest.
+    // Sans ça, le fichier fraîchement téléchargé porte la date de la copie, donc
+    // le fast-path taille+mtime de diffManifest ne s'applique jamais : au
+    // lancement suivant, le launcher re-hashe intégralement tout ce qu'il vient
+    // de télécharger (plusieurs dizaines de Go de MPQ = plusieurs minutes).
+    if (file.mtime) {
+      try { fs.utimesSync(dest, file.mtime, file.mtime) } catch {}
+    }
   }
 }
 
@@ -449,6 +488,7 @@ export function findObsoleteFiles(installPath, prevManifestFiles, currentManifes
   const currentSet = new Set(currentManifest.files.map(f => f.path))
   return prevManifestFiles.filter(rel => {
     if (currentSet.has(rel)) return false
+    if (isNeverSynced(rel)) return false
     return fs.existsSync(path.join(installPath, rel))
   })
 }
